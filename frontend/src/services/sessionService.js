@@ -21,3 +21,8 @@ export async function getSessionSummary(sessionId) {
   const { data } = await api.get(`/staff/sessions/${sessionId}/summary`);
   return data;
 }
+
+export async function closeSession() {
+  const { data } = await api.patch('/staff/sessions/current/close');
+  return data.session;
+}

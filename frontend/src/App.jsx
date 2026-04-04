@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import PosHome from './pages/PosHome';
+import PosTerminal from './pages/PosTerminal';
 import AdminLogin from './pages/AdminLogin';
 import AdminSignup from './pages/AdminSignup';
 import AdminHome from './pages/AdminHome';
@@ -113,6 +114,15 @@ export default function App() {
           element={(
             <ProtectedRoute allowedRoles={['staff', 'admin']}>
               <PosHome />
+            </ProtectedRoute>
+          )}
+        />
+
+        <Route
+          path="/pos/terminal"
+          element={(
+            <ProtectedRoute allowedRoles={['staff', 'admin']}>
+              <PosTerminal />
             </ProtectedRoute>
           )}
         />

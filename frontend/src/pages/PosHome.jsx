@@ -42,6 +42,11 @@ export default function PosHome() {
 
         setSession(current);
 
+        if (current?.status === "active") {
+          navigate("/pos/terminal", { replace: true });
+          return;
+        }
+
         if (current?.id) {
           try {
             const summary = await getSessionSummary(current.id);
@@ -68,7 +73,7 @@ export default function PosHome() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [navigate]);
 
   const onLogout = () => {
     clearAuth();
@@ -83,6 +88,7 @@ export default function PosHome() {
       setSession(created);
       setLastClosingSale(0);
       toast.success("Session opened successfully");
+      navigate("/pos/terminal", { replace: true });
     } catch (error) {
       toast.error(error?.response?.data?.error || "Unable to open session");
     } finally {
