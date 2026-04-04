@@ -174,8 +174,13 @@ CREATE TABLE IF NOT EXISTS payment_method_settings (
 );
 
 INSERT INTO payment_method_settings (method, enabled)
-VALUES ('cash', TRUE), ('card', TRUE), ('upi', TRUE)
-ON CONFLICT (method) DO NOTHING;
+SELECT seed.method, TRUE
+FROM (VALUES ('cash'), ('card'), ('upi')) AS seed(method)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM payment_method_settings pms
+  WHERE pms.method = seed.method
+);
 
 -- ======================================
 -- 10. SELF_ORDER_TOKENS TABLE (Optional - for QR table ordering)

@@ -21,6 +21,7 @@ export function authenticateToken(req, res, next) {
       id: decoded.sub,
       email: decoded.email,
       role: decoded.role,
+      posId: decoded.posId || null,
     };
 
     return next();

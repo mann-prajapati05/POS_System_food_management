@@ -67,8 +67,13 @@ async function ensureAdminCompatibilitySchema() {
 
   await pool.query(
     `INSERT INTO payment_method_settings (method, enabled)
-     VALUES ('cash', true), ('card', true), ('upi', true)
-     ON CONFLICT (method) DO NOTHING`
+     SELECT seed.method, true
+     FROM (VALUES ('cash'), ('card'), ('upi')) AS seed(method)
+     WHERE NOT EXISTS (
+       SELECT 1
+       FROM payment_method_settings pms
+       WHERE pms.method = seed.method
+     )`
   );
 }
 

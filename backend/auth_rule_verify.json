@@ -1,0 +1,44 @@
+﻿{
+    "staffLoginWrongPos":  {
+                               "error":  "Invalid POS name or POS unique ID"
+                           },
+    "staffLoginCorrectPos":  {
+                                 "user":  {
+                                              "id":  "1ee9f44e-ddb8-44bc-99cb-37751266b223",
+                                              "name":  "Rule Staff",
+                                              "email":  "staff_rule_1775337958@example.com",
+                                              "role":  "staff",
+                                              "posId":  "e7b3700f-9164-4b06-820e-51e2b702bcb6"
+                                          }
+                             },
+    "staffSignupWithPos":  {
+                               "message":  "User registered successfully",
+                               "user":  {
+                                            "id":  "1ee9f44e-ddb8-44bc-99cb-37751266b223",
+                                            "name":  "Rule Staff",
+                                            "email":  "staff_rule_1775337958@example.com",
+                                            "role":  "staff",
+                                            "pos_id":  "e7b3700f-9164-4b06-820e-51e2b702bcb6",
+                                            "created_at":  "2026-04-04T21:25:59.817Z"
+                                        }
+                           },
+    "adminSignup":  {
+                        "message":  "User registered successfully",
+                        "createdPos":  {
+                                           "id":  "e7b3700f-9164-4b06-820e-51e2b702bcb6",
+                                           "name":  "Rule POS 1775337958",
+                                           "uniqueId":  "POS-B3XJLE"
+                                       },
+                        "user":  {
+                                     "id":  "84b55625-a94f-4cba-bcd6-8698f3b43273",
+                                     "name":  "Rule Admin",
+                                     "email":  "admin_rule_1775337958@example.com",
+                                     "role":  "admin",
+                                     "pos_id":  "e7b3700f-9164-4b06-820e-51e2b702bcb6",
+                                     "created_at":  "2026-04-04T21:25:59.237Z"
+                                 }
+                    },
+    "staffSignupWithoutPos":  {
+                                  "error":  "Invalid POS credentials. Enter POS name and POS unique ID."
+                              }
+}

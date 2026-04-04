@@ -26,6 +26,8 @@ import {
   getSalesReport,
   getTopProducts,
   getAdminDashboard,
+  listPos,
+  createPos,
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -33,6 +35,8 @@ const router = express.Router();
 router.use(authenticateToken, authorizeRoles('admin'));
 
 router.get('/dashboard', asyncHandler(getAdminDashboard));
+router.get('/pos', asyncHandler(listPos));
+router.post('/pos', asyncHandler(createPos));
 
 router.post('/users', asyncHandler(createUser));
 router.get('/users', asyncHandler(listUsers));
