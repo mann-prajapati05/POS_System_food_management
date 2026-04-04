@@ -3,10 +3,14 @@ import {
   addOrderItem,
   closeSession,
   createOrder,
+  getOrderDetails,
   getCurrentSession,
   getOrderStatus,
   getSessionSummary,
+  listCategories,
   listFloorsAndTables,
+  listProducts,
+  listSessionOrders,
   openSession,
   processPayment,
   removeOrderItem,
@@ -41,8 +45,12 @@ router.patch('/sessions/current/close', asyncHandler(closeSession));
 router.get('/sessions/:sessionId/summary', validateUuidParam('sessionId'), validateRequest, asyncHandler(getSessionSummary));
 
 router.get('/floors-tables', asyncHandler(listFloorsAndTables));
+router.get('/categories', asyncHandler(listCategories));
+router.get('/products', asyncHandler(listProducts));
+router.get('/orders', asyncHandler(listSessionOrders));
 
 router.post('/orders', enforceActiveSession, asyncHandler(createOrder));
+router.get('/orders/:orderId', validateUuidParam('orderId'), validateRequest, asyncHandler(getOrderDetails));
 router.post('/orders/:orderId/items', enforceActiveSession, validateUuidParam('orderId'), validateOrderItemBody, validateRequest, asyncHandler(addOrderItem));
 router.patch('/orders/:orderId/items/:itemId', enforceActiveSession, validateUuidParam('orderId'), validateUuidParam('itemId'), validateOrderItemUpdateBody, validateRequest, asyncHandler(updateOrderItem));
 router.delete('/orders/:orderId/items/:itemId', enforceActiveSession, validateUuidParam('orderId'), validateUuidParam('itemId'), validateRequest, asyncHandler(removeOrderItem));

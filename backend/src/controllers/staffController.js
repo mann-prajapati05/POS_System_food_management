@@ -159,10 +159,28 @@ export async function listFloorsAndTables(req, res) {
       [posId]
     );
     const tablesResult = await query(
-      `SELECT id, floor_id, table_number, seats, status, created_at
+      `SELECT
+         t.id,
+         t.floor_id,
+         t.table_number,
+         t.seats,
+         t.status,
+         t.created_at,
+         o.id AS active_order_id,
+         o.status AS active_order_status
        FROM tables
-       WHERE pos_id = $1
-       ORDER BY floor_id, table_number`,
+       t
+       LEFT JOIN LATERAL (
+         SELECT id, status
+         FROM orders
+         WHERE table_id = t.id
+           AND pos_id = t.pos_id
+           AND status != 'paid'
+         ORDER BY created_at DESC
+         LIMIT 1
+       ) o ON TRUE
+       WHERE t.pos_id = $1
+       ORDER BY t.floor_id, t.table_number`,
       [posId]
     );
 
@@ -670,5 +688,178 @@ export async function getSessionSummary(req, res) {
     });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to fetch session summary' });
+  }
+}
+
+export async function listCategories(req, res) {
+  try {
+    const posId = req.user.posId;
+    const result = await query(
+      `SELECT id, name, description
+       FROM categories
+       WHERE pos_id = $1
+       ORDER BY name ASC`,
+      [posId]
+    );
+
+    return res.status(200).json({ categories: result.rows });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch categories' });
+  }
+}
+
+export async function listProducts(req, res) {
+  try {
+    const posId = req.user.posId;
+    const { categoryId, q } = req.query;
+    const values = [posId];
+    const where = ['p.pos_id = $1', 'p.is_available = true'];
+
+    if (categoryId) {
+      if (!isUuid(categoryId)) {
+        return res.status(400).json({ error: 'categoryId must be a valid UUID' });
+      }
+      values.push(categoryId);
+      where.push(`p.category_id = $${values.length}`);
+    }
+
+    if (q) {
+      values.push(`%${String(q).trim()}%`);
+      where.push(`p.name ILIKE $${values.length}`);
+    }
+
+    const result = await query(
+      `SELECT
+         p.id,
+         p.name,
+         p.price,
+         p.description,
+         p.category_id,
+         c.name AS category_name
+       FROM products p
+       INNER JOIN categories c ON c.id = p.category_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY p.name ASC`,
+      values
+    );
+
+    return res.status(200).json({ products: result.rows });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch products' });
+  }
+}
+
+export async function getOrderDetails(req, res) {
+  try {
+    const posId = req.user.posId;
+    const { orderId } = req.params;
+
+    const orderRes = await query(
+      `SELECT
+         o.id,
+         o.table_id,
+         o.session_id,
+         o.status,
+         o.total_price,
+         o.notes,
+         o.created_at,
+         t.table_number,
+         f.name AS floor_name
+       FROM orders o
+       INNER JOIN tables t ON t.id = o.table_id
+       INNER JOIN floors f ON f.id = t.floor_id
+       WHERE o.id = $1 AND o.pos_id = $2`,
+      [orderId, posId]
+    );
+
+    if (!orderRes.rows[0]) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const itemsRes = await query(
+      `SELECT
+         oi.id,
+         oi.product_id,
+         p.name AS product_name,
+         oi.quantity,
+         oi.price_at_time,
+         oi.notes,
+         oi.is_prepared
+       FROM order_items oi
+       INNER JOIN products p ON p.id = oi.product_id
+       WHERE oi.order_id = $1
+       ORDER BY oi.created_at ASC`,
+      [orderId]
+    );
+
+    return res.status(200).json({
+      order: {
+        ...orderRes.rows[0],
+        items: itemsRes.rows,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch order details' });
+  }
+}
+
+export async function listSessionOrders(req, res) {
+  try {
+    const posId = req.user.posId;
+    const { sessionId } = req.query;
+
+    let targetSessionId = sessionId;
+    if (!targetSessionId) {
+      const sessionRes = await query(
+        `SELECT id
+         FROM pos_sessions
+         WHERE pos_id = $1
+         ORDER BY opened_at DESC
+         LIMIT 1`,
+        [posId]
+      );
+      targetSessionId = sessionRes.rows[0]?.id;
+    }
+
+    if (!targetSessionId) {
+      return res.status(200).json({ orders: [] });
+    }
+
+    const result = await query(
+      `SELECT
+         o.id,
+         o.table_id,
+         t.table_number,
+         o.status,
+         o.total_price,
+         o.created_at,
+         o.paid_at,
+         CASE WHEN o.status = 'paid' THEN 'paid' ELSE 'unpaid' END AS payment_status,
+         COALESCE(
+           json_agg(
+             json_build_object(
+               'itemId', oi.id,
+               'name', p.name,
+               'quantity', oi.quantity,
+               'priceAtTime', oi.price_at_time
+             )
+             ORDER BY oi.created_at
+           ) FILTER (WHERE oi.id IS NOT NULL),
+           '[]'::json
+         ) AS items
+       FROM orders o
+       INNER JOIN tables t ON t.id = o.table_id
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       LEFT JOIN products p ON p.id = oi.product_id
+       WHERE o.pos_id = $1
+         AND o.session_id = $2
+       GROUP BY o.id, t.table_number
+       ORDER BY o.created_at DESC`,
+      [posId, targetSessionId]
+    );
+
+    return res.status(200).json({ orders: result.rows, sessionId: targetSessionId });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch session orders' });
   }
 }
