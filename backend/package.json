@@ -1,19 +1,14 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "app.js",
+  "main": "src/app.js",
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
-    "test": "node tests/test.js",
-    "test:watch": "nodemon tests/test.js",
-    "db:init": "psql -U postgres -d odoo_pos -f database/schema.sql",
-    "db:seed": "psql -U postgres -d odoo_pos -f database/seed.sql"
+    "start": "node src/app.js"
   },
   "author": "",
   "license": "ISC",
-  "description": "Production-grade Restaurant POS System backend with complete workflow support",
+  "description": "",
   "dependencies": {
     "axios": "^1.14.0",
     "bcrypt": "^6.0.0",
@@ -25,9 +20,9 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.3.3",
     "multer": "^2.1.1",
-    "pdfjs-dist": "^5.5.207",
     "pg": "^8.11.3",
-    "socket.io": "^4.7.2"
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

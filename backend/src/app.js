@@ -1,156 +1,218 @@
-/**
- * EXPRESS APPLICATION SETUP
- * 
- * Main Express app configuration
- * Features:
- * - CORS enabled for frontend communication
- * - JSON/URL-encoded middleware
- * - Request logging
- * - All API routes mounted
- * - Error handling
- * 
- * Entry point: run this file directly or import in index.js
- */
-
 import express from 'express';
+import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
-
-// Middleware imports
-import { requestLogger, errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-
-// Routes imports
-import apiRoutes from './routes/index.js';
-
-// Database
-import { ensureDatabaseAndSchema, testConnection } from './config/db.js';
+import { createServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import { closeConnection, ensureDatabaseAndSchema, testConnection, getPoolStatus } from './config/db.js';
+import { initializeSocketIO } from './services/socketEvents.js';
+import authRouter from './routes/authRouter.js';
+import staffRouter from './routes/staffRouter.js';
+import adminRouter from './routes/adminRouter.js';
+import kitchenRouter from './routes/kitchenRouter.js';
+import OrderRouter from './routes/orderRouter.js';
 
 dotenv.config();
 
-// ======================================
-// EXPRESS APP INITIALIZATION
-// ======================================
 const app = express();
 
-// ======================================
-// MIDDLEWARE
-// ======================================
+// CORS configuration for both HTTP and WebSocket
+const corsOptions = {
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+};
 
-/**
- * CORS Configuration
- * Allow requests from frontend (localhost:3000, localhost:5173, etc.)
- */
-app.use(
-  cors({
-    origin: process.env.FRONTEND_URL || ['http://localhost:3000', 'http://localhost:5173'],
-    credentials: true,
-  })
-);
+app.use(cors(corsOptions));
+app.use(cookieParser());
+app.use(express.json());
 
-/**
- * Built-in Express middleware
- */
-app.use(express.json()); // Parse JSON request bodies (limit: 10mb)
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
-app.use(cookieParser()); // Parse cookies
-
-/**
- * Custom middleware
- */
-app.use(requestLogger); // Log all requests
-
-// ======================================
-// HEALTH CHECK ENDPOINT
-// ======================================
-
-/**
- * GET /health
- * Quick health check without hitting database
- */
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
+app.use('/',(req,res,next)=>{
+    console.log(req.method,req.url);
+    next();
 });
 
-/**
- * GET /api-status
- * Detailed status with database check
- */
-app.get('/api-status', async (req, res) => {
+app.use('/auth', authRouter);
+app.use('/staff', staffRouter);
+app.use('/admin', adminRouter);
+app.use('/kitchen', kitchenRouter);
+app.use('/orders', OrderRouter);
+
+app.get('/health', async (req, res) => {
   try {
     await testConnection();
-    res.json({
-      status: 'ok',
+    const poolStatus = await getPoolStatus();
+    res.status(200).json({
+      status: 'OK',
+      server: 'running',
       database: 'connected',
       timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || 'development',
+      pool: poolStatus,
     });
   } catch (err) {
+    console.error('❌ Health check failed:', err.message);
     res.status(503).json({
-      status: 'error',
-      database: 'disconnected',
-      message: err.message,
+      status: 'FAILED',
+      error: err.message,
+      timestamp: new Date().toISOString(),
     });
   }
 });
 
-// ======================================
-// API ROUTES
-// ======================================
+// Catch 404
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
+});
 
-/**
- * Mount all API routes under /api
- * This keeps routes modular and organized
- */
-app.use('/api', apiRoutes);
-
-// ======================================
-// ERROR HANDLING MIDDLEWARE
-// ======================================
-
-/**
- * 404 Not Found Handler
- * Must come before global error handler
- */
-app.use(notFoundHandler);
-
-/**
- * Global Error Handler
- * Catches all errors from routes and middleware
- * Must be registered LAST
- */
-app.use(errorHandler);
-
-// ======================================
-// SERVER STARTUP
-// ======================================
+// Global error handler middleware (must be last)
+app.use((err, req, res, next) => {
+  console.error('🔴 Express Error:', err.message);
+  console.error('Stack:', err.stack);
+  res.status(err.status || 500).json({
+    error: err.message || 'Internal server error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+  });
+});
 
 const PORT = process.env.PORT || 3000;
 
-/**
- * Start Express server
- * Runs on process.env.PORT or 3000
- */
-export async function startServer() {
+// Create HTTP server for Socket.io
+const httpServer = createServer(app);
+
+// Initialize Socket.IO with CORS
+const io = new SocketIOServer(httpServer, {
+  cors: corsOptions,
+  transports: ['websocket', 'polling'],
+  pingInterval: 25000,
+  pingTimeout: 60000,
+});
+
+// Initialize Socket.IO event service
+initializeSocketIO(io);
+
+// ===== SOCKET.IO CONNECTION HANDLING =====
+io.on('connection', (socket) => {
+  console.log(`🔌 New client connected: ${socket.id}`);
+
+  // Handle user authentication and role setup
+  socket.on('user_authenticated', (data) => {
+    const { userId, role, sessionId } = data;
+    
+    // Tag socket with user info
+    socket.userId = userId;
+    socket.userRole = role;
+    socket.sessionId = sessionId;
+
+    // Join role-based room for broadcast updates
+    socket.join(`role:${role}`);
+    console.log(`✅ User ${userId} (${role}) joined room: role:${role}`);
+
+    // Join session-specific room
+    if (sessionId) {
+      socket.join(`session:${sessionId}`);
+      console.log(`✅ User ${userId} joined session room: session:${sessionId}`);
+    }
+
+    // Notify others in session that user joined
+    io.to(`session:${sessionId}`).emit('user_joined', {
+      userId,
+      role,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Handle real-time order updates from kitchen
+  socket.on('kitchen_update', (data) => {
+    const { orderId, status, sessionId } = data;
+    // Broadcast to session staff dashboard
+    io.to(`session:${sessionId}`).emit('order_status_updated', {
+      orderId,
+      status,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    console.log(`❌ Client disconnected: ${socket.id}`);
+    if (socket.sessionId && socket.userId) {
+      io.to(`session:${socket.sessionId}`).emit('user_left', {
+        userId: socket.userId,
+        role: socket.userRole,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  });
+
+  // Handle errors
+  socket.on('error', (error) => {
+    console.error(`🔴 Socket error [${socket.id}]:`, error);
+  });
+});
+
+async function startServer() {
   try {
-    // Test database connection on startup
-    console.log('\n=== Starting Restaurant POS Backend ===\n');
     await ensureDatabaseAndSchema();
     await testConnection();
+    console.log('✅ Database connection established');
 
-    app.listen(PORT, () => {
-      console.log(`✓ Server running on port ${PORT}`);
-      console.log(`✓ Frontend: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
-      console.log(`✓ Health check: http://localhost:${PORT}/health\n`);
+    await new Promise((resolve, reject) => {
+      const onError = (error) => {
+        httpServer.off('listening', onListening);
+        reject(error);
+      };
+
+      const onListening = () => {
+        httpServer.off('error', onError);
+        resolve();
+      };
+
+      httpServer.once('error', onError);
+      httpServer.once('listening', onListening);
+      httpServer.listen(PORT);
     });
+
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log('📡 WebSocket enabled for real-time updates');
+    console.log(`http://localhost:${PORT}/`);
   } catch (err) {
-    console.error('Failed to start server:', err.message);
+    if (err?.code === 'EADDRINUSE') {
+      console.error(`❌ Port ${PORT} is already in use.`);
+      console.error('Close the process using this port or set a different PORT in .env');
+    }
+    console.error('❌ Startup failed:', err.message);
+    await closeConnection();
     process.exit(1);
   }
 }
 
-export default app;
+// Global error handlers to prevent silent crashes
+process.on('unhandledRejection', async (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  await closeConnection();
+  process.exit(1);
+});
+
+process.on('uncaughtException', async (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  await closeConnection();
+  process.exit(1);
+});
+
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Shutting down gracefully...');
+  io.close();
+  await closeConnection();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n🛑 SIGTERM received, shutting down...');
+  io.close();
+  await closeConnection();
+  process.exit(0);
+});
+
+startServer();
+
+export { app, httpServer, io };
+

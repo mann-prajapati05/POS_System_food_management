@@ -43,6 +43,7 @@ CREATE INDEX idx_pos_sessions_opened_by ON pos_sessions(opened_by);
 CREATE TABLE IF NOT EXISTS floors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
+  is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -57,6 +58,7 @@ CREATE TABLE IF NOT EXISTS tables (
   table_number INTEGER NOT NULL,
   seats INTEGER NOT NULL CHECK (seats > 0),
   status VARCHAR(50) NOT NULL CHECK (status IN ('available', 'occupied')) DEFAULT 'available',
+  is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE (floor_id, table_number)
 );
@@ -131,12 +133,16 @@ CREATE TABLE IF NOT EXISTS order_items (
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   price_at_time NUMERIC(10, 2) NOT NULL CHECK (price_at_time > 0),
+  is_prepared BOOLEAN DEFAULT FALSE,
+  prepared_at TIMESTAMP,
+  prepared_by UUID REFERENCES users(id) ON DELETE SET NULL,
   notes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX idx_order_items_product_id ON order_items(product_id);
+CREATE INDEX idx_order_items_order_prepared ON order_items(order_id, is_prepared);
 
 -- ======================================
 -- 9. PAYMENTS TABLE
@@ -156,6 +162,20 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX idx_payments_order_id ON payments(order_id);
 CREATE INDEX idx_payments_status ON payments(status);
 CREATE INDEX idx_payments_method ON payments(method);
+
+-- ======================================
+-- 9.1 PAYMENT_METHOD_SETTINGS TABLE
+-- ======================================
+CREATE TABLE IF NOT EXISTS payment_method_settings (
+  method VARCHAR(50) PRIMARY KEY CHECK (method IN ('cash', 'card', 'upi')),
+  enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  upi_id VARCHAR(255),
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT INTO payment_method_settings (method, enabled)
+VALUES ('cash', TRUE), ('card', TRUE), ('upi', TRUE)
+ON CONFLICT (method) DO NOTHING;
 
 -- ======================================
 -- 10. SELF_ORDER_TOKENS TABLE (Optional - for QR table ordering)
