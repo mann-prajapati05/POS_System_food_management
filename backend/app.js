@@ -3,6 +3,7 @@ import express from 'express';
 // import authRouter from './routes/authRouter.js';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
+import pool from './config/db.js';
 
 
 dotenv.config();
@@ -20,12 +21,19 @@ app.use('/',(req,res,next)=>{
     next();
 })
 
+<<<<<<< HEAD
 //app.use('/auth', authRouter);
+=======
+// app.use('/auth', authRouter);
+>>>>>>> 184a008e6f58f72e3188262721b483451010188b
 
-const PORT=process.env.PORT;
+const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
     try {
+        await pool.query('SELECT 1'); // Test the database connection
+        console.log("Database connected successfully.");
+        
         app.listen(PORT,()=>{
             console.log(`Server is running on http://localhost:${PORT}/`);
         });
