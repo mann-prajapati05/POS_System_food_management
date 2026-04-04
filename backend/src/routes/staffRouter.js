@@ -19,25 +19,33 @@ import {
   authorizeRole,
   enforceActiveSession,
 } from '../middleware/authMiddleware.js';
+import {
+  validateRequest,
+  validateUuidParam,
+  validateOpenSessionBody,
+  validateOrderItemBody,
+  validateOrderItemUpdateBody,
+  validatePaymentBody,
+} from '../middleware/validationMiddleware.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
 router.use(requireAuth, attachPOSContext, authorizeRole('staff'));
 
-router.post('/sessions/open', asyncHandler(openSession));
+router.post('/sessions/open', validateOpenSessionBody, validateRequest, asyncHandler(openSession));
 router.get('/sessions/current', asyncHandler(getCurrentSession));
 router.patch('/sessions/current/close', asyncHandler(closeSession));
-router.get('/sessions/:sessionId/summary', asyncHandler(getSessionSummary));
+router.get('/sessions/:sessionId/summary', validateUuidParam('sessionId'), validateRequest, asyncHandler(getSessionSummary));
 
 router.get('/floors-tables', asyncHandler(listFloorsAndTables));
 
 router.post('/orders', enforceActiveSession, asyncHandler(createOrder));
-router.post('/orders/:orderId/items', enforceActiveSession, asyncHandler(addOrderItem));
-router.patch('/orders/:orderId/items/:itemId', enforceActiveSession, asyncHandler(updateOrderItem));
-router.delete('/orders/:orderId/items/:itemId', enforceActiveSession, asyncHandler(removeOrderItem));
-router.patch('/orders/:orderId/send-to-kitchen', enforceActiveSession, asyncHandler(sendOrderToKitchen));
-router.get('/orders/:orderId/status', asyncHandler(getOrderStatus));
-router.post('/orders/:orderId/payment', enforceActiveSession, asyncHandler(processPayment));
+router.post('/orders/:orderId/items', enforceActiveSession, validateUuidParam('orderId'), validateOrderItemBody, validateRequest, asyncHandler(addOrderItem));
+router.patch('/orders/:orderId/items/:itemId', enforceActiveSession, validateUuidParam('orderId'), validateUuidParam('itemId'), validateOrderItemUpdateBody, validateRequest, asyncHandler(updateOrderItem));
+router.delete('/orders/:orderId/items/:itemId', enforceActiveSession, validateUuidParam('orderId'), validateUuidParam('itemId'), validateRequest, asyncHandler(removeOrderItem));
+router.patch('/orders/:orderId/send-to-kitchen', enforceActiveSession, validateUuidParam('orderId'), validateRequest, asyncHandler(sendOrderToKitchen));
+router.get('/orders/:orderId/status', validateUuidParam('orderId'), validateRequest, asyncHandler(getOrderStatus));
+router.post('/orders/:orderId/payment', enforceActiveSession, validateUuidParam('orderId'), validatePaymentBody, validateRequest, asyncHandler(processPayment));
 
 export default router;

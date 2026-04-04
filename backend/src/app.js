@@ -10,7 +10,6 @@ import authRouter from './routes/authRouter.js';
 import staffRouter from './routes/staffRouter.js';
 import adminRouter from './routes/adminRouter.js';
 import kitchenRouter from './routes/kitchenRouter.js';
-import OrderRouter from './routes/orderRouter.js';
 
 dotenv.config();
 
@@ -35,9 +34,6 @@ app.use('/auth', authRouter);
 app.use('/staff', staffRouter);
 app.use('/admin', adminRouter);
 app.use('/kitchen', kitchenRouter);
-if (process.env.ENABLE_LEGACY_ORDER_ROUTES === 'true') {
-  app.use('/orders', OrderRouter);
-}
 
 app.get('/health', async (req, res) => {
   try {
@@ -62,7 +58,11 @@ app.get('/health', async (req, res) => {
 
 // Catch 404
 app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+    errorCode: 'ROUTE_NOT_FOUND',
+  });
 });
 
 // Global error handler middleware (must be last)
@@ -70,7 +70,9 @@ app.use((err, req, res, next) => {
   console.error('🔴 Express Error:', err.message);
   console.error('Stack:', err.stack);
   res.status(err.status || 500).json({
-    error: err.message || 'Internal server error',
+    success: false,
+    message: err.message || 'Internal server error',
+    errorCode: err.errorCode || 'INTERNAL_SERVER_ERROR',
     ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
   });
 });

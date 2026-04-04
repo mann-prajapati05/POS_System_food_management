@@ -133,6 +133,9 @@ CREATE INDEX idx_orders_session_id ON orders(session_id);
 CREATE INDEX idx_orders_table_id ON orders(table_id);
 CREATE INDEX idx_orders_created_by ON orders(created_by);
 CREATE INDEX idx_orders_assigned_kitchen_user ON orders(assigned_kitchen_user);
+CREATE UNIQUE INDEX ux_orders_one_open_per_table
+  ON orders(pos_id, table_id)
+  WHERE status != 'paid';
 
 CREATE TABLE IF NOT EXISTS order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -167,6 +170,9 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX idx_payments_pos_id ON payments(pos_id);
 CREATE INDEX idx_payments_order_id ON payments(order_id);
 CREATE INDEX idx_payments_status ON payments(status);
+CREATE UNIQUE INDEX ux_payments_one_completed_per_order
+  ON payments(order_id)
+  WHERE status = 'completed';
 
 CREATE TABLE IF NOT EXISTS payment_method_settings (
   pos_id UUID NOT NULL REFERENCES pos(id) ON DELETE CASCADE,

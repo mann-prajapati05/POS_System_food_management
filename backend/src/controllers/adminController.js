@@ -48,9 +48,12 @@ async function resolveAdminPosScope(req, posIdCandidate) {
     return { error: 'No POS access configured for this admin', status: 403 };
   }
 
-  const requestedPosId = posIdCandidate || req.query.posId || req.body.posId || null;
+  const requestedPosId = posIdCandidate || req.query?.posId || req.body?.posId || null;
   if (!requestedPosId) {
-    return { posIds: allowedPosIds, selectedPosId: req.user.posId };
+    const selectedPosId = allowedPosIds.includes(req.user.posId)
+      ? req.user.posId
+      : allowedPosIds[0];
+    return { posIds: allowedPosIds, selectedPosId };
   }
 
   if (!allowedPosIds.includes(requestedPosId)) {
@@ -1003,7 +1006,7 @@ export async function listSessions(req, res) {
          COALESCE(SUM(o.total_price) FILTER (WHERE o.status = 'paid'), 0) AS calculated_revenue
        FROM pos_sessions ps
        INNER JOIN users u ON u.id = ps.opened_by
-       LEFT JOIN orders o ON o.session_id = ps.id
+       LEFT JOIN orders o ON o.session_id = ps.id AND o.pos_id = ps.pos_id
        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
        GROUP BY ps.id, u.name
        ORDER BY ps.opened_at DESC`,
@@ -1070,6 +1073,17 @@ export async function closeActiveSession(req, res) {
 
     const sessionId = active.rows[0].id;
 
+    const openOrdersRes = await query(
+      `SELECT COUNT(*)::int AS open_orders
+       FROM orders
+       WHERE session_id = $1 AND pos_id = $2 AND status != 'paid'`,
+      [sessionId, scope.selectedPosId]
+    );
+
+    if (openOrdersRes.rows[0].open_orders > 0) {
+      return res.status(409).json({ error: 'Cannot close session with unpaid or in-progress orders' });
+    }
+
     const summary = await query(
       `SELECT
          COUNT(*) FILTER (WHERE o.status = 'paid') AS paid_orders,
@@ -1086,13 +1100,14 @@ export async function closeActiveSession(req, res) {
            closed_at = CURRENT_TIMESTAMP,
            total_sales = $2,
            total_orders = $3
-       WHERE id = $1
+       WHERE id = $1 AND pos_id = $5
        RETURNING id, pos_id, status, opened_at, closed_at, total_sales, total_orders, closed_by`,
       [
         sessionId,
         summary.rows[0].total_sales,
         Number(summary.rows[0].paid_orders || 0),
         req.user.id,
+        scope.selectedPosId,
       ]
     );
 
@@ -1132,17 +1147,18 @@ export async function getAdminSessionSummary(req, res) {
          COUNT(*) FILTER (WHERE status = 'paid')::int AS paid_orders,
          COALESCE(SUM(total_price) FILTER (WHERE status = 'paid'), 0) AS revenue
        FROM orders
-       WHERE session_id = $1`,
-      [sessionId]
+       WHERE session_id = $1 AND pos_id = ANY($2::uuid[])`,
+      [sessionId, scope.posIds]
     );
 
     const payments = await query(
       `SELECT method, COUNT(*)::int AS count, COALESCE(SUM(amount), 0) AS total
        FROM payments
-       WHERE order_id IN (SELECT id FROM orders WHERE session_id = $1)
+       WHERE pos_id = ANY($2::uuid[])
+         AND order_id IN (SELECT id FROM orders WHERE session_id = $1 AND pos_id = ANY($2::uuid[]))
        GROUP BY method
        ORDER BY method`,
-      [sessionId]
+      [sessionId, scope.posIds]
     );
 
     return res.status(200).json({

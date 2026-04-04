@@ -60,6 +60,8 @@ export async function openSession(req, res) {
       [posId, staffId, notes || null]
     );
 
+    console.log(`SESSION_OPENED pos=${posId} session=${created.rows[0].id} user=${staffId}`);
+
     return res.status(201).json({ session: created.rows[0] });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to open session' });
@@ -104,13 +106,24 @@ export async function closeSession(req, res) {
 
     const sessionId = active.rows[0].id;
 
+    const openOrdersRes = await query(
+      `SELECT COUNT(*)::int AS open_orders
+       FROM orders
+       WHERE session_id = $1 AND pos_id = $2 AND status != 'paid'`,
+      [sessionId, posId]
+    );
+
+    if (openOrdersRes.rows[0].open_orders > 0) {
+      return res.status(409).json({ error: 'Cannot close session with unpaid or in-progress orders' });
+    }
+
     const summary = await query(
       `SELECT
          COUNT(*) FILTER (WHERE o.status = 'paid') AS paid_orders,
          COALESCE(SUM(o.total_price) FILTER (WHERE o.status = 'paid'), 0) AS total_sales
        FROM orders o
-       WHERE o.session_id = $1`,
-      [sessionId]
+       WHERE o.session_id = $1 AND o.pos_id = $2`,
+      [sessionId, posId]
     );
 
     const closed = await query(
@@ -130,6 +143,8 @@ export async function closeSession(req, res) {
       ]
     );
 
+    console.log(`SESSION_CLOSED pos=${posId} session=${sessionId} user=${staffId} totalSales=${closed.rows[0].total_sales}`);
+
     return res.status(200).json({ session: closed.rows[0] });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to close session' });
@@ -147,7 +162,7 @@ export async function listFloorsAndTables(req, res) {
       `SELECT id, floor_id, table_number, seats, status, created_at
        FROM tables
        WHERE pos_id = $1
-       ORDER BY floor_id, table_number`
+       ORDER BY floor_id, table_number`,
       [posId]
     );
 
@@ -195,7 +210,15 @@ export async function createOrder(req, res) {
       return res.status(400).json({ error: 'tableId must be a valid UUID' });
     }
 
-    const sessionId = await getActiveSessionForPos(posId);
+    const sessionRes = await client.query(
+      `SELECT id
+       FROM pos_sessions
+       WHERE pos_id = $1 AND status = 'active'
+       ORDER BY opened_at DESC
+       LIMIT 1`,
+      [posId]
+    );
+    const sessionId = sessionRes.rows[0]?.id;
     if (!sessionId) {
       await rollbackTransaction(client);
       return res.status(400).json({ error: 'Open a POS session first' });
@@ -232,6 +255,8 @@ export async function createOrder(req, res) {
 
     await client.query('UPDATE tables SET status = $1 WHERE id = $2', ['occupied', tableId]);
     await commitTransaction(client);
+
+    console.log(`ORDER_CREATED pos=${posId} order=${orderRes.rows[0].id} session=${sessionId} user=${staffId}`);
 
     emitOrderCreated(orderRes.rows[0], sessionId);
     emitTableStatusChanged(tableId, 'occupied', sessionId);
@@ -450,9 +475,9 @@ export async function sendOrderToKitchen(req, res) {
       `UPDATE orders
        SET status = 'to_cook',
            started_at = CURRENT_TIMESTAMP
-       WHERE id = $1
+       WHERE id = $1 AND pos_id = $2
        RETURNING id, status, started_at`,
-      [orderId]
+      [orderId, posId]
     );
 
     const itemsRes = await client.query(
@@ -567,19 +592,33 @@ export async function processPayment(req, res) {
     const orderPaidRes = await client.query(
       `UPDATE orders
        SET status = 'paid', paid_at = CURRENT_TIMESTAMP
-       WHERE id = $1
+       WHERE id = $1 AND pos_id = $2
        RETURNING id, status, total_price, paid_at, table_id`,
-      [orderId]
+      [orderId, posId]
     );
 
-    await client.query('UPDATE tables SET status = $1 WHERE id = $2', ['available', order.table_id]);
     const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1 AND pos_id = $2', [orderId, posId]);
+    const sessionId = orderSessionRes.rows[0]?.session_id;
+
+    if (!sessionId) {
+      await rollbackTransaction(client);
+      return res.status(500).json({ error: 'Order session not found' });
+    }
+
+    await client.query('UPDATE tables SET status = $1 WHERE id = $2 AND pos_id = $3', ['available', order.table_id, posId]);
+    await client.query(
+      `UPDATE pos_sessions
+       SET total_sales = COALESCE(total_sales, 0) + $2,
+           total_orders = COALESCE(total_orders, 0) + 1
+       WHERE id = $1 AND pos_id = $3`,
+      [sessionId, Number(order.total_price), posId]
+    );
     await commitTransaction(client);
 
-    if (orderSessionRes.rows[0]) {
-      emitPaymentCompleted(orderId, orderSessionRes.rows[0].session_id, normalizedMethod, amount);
-      emitTableStatusChanged(order.table_id, 'available', orderSessionRes.rows[0].session_id);
-    }
+    console.log(`PAYMENT_COMPLETED pos=${posId} order=${orderId} session=${sessionId} method=${normalizedMethod} amount=${amount}`);
+
+    emitPaymentCompleted(orderId, sessionId, normalizedMethod, amount);
+    emitTableStatusChanged(order.table_id, 'available', sessionId);
 
     return res.status(200).json({
       payment: paymentRes.rows[0],

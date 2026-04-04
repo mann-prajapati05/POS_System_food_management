@@ -278,12 +278,14 @@ export async function assignKitchenOrder(req, res) {
     const updated = await client.query(
       `UPDATE orders
        SET assigned_kitchen_user = $2
-       WHERE id = $1
+       WHERE id = $1 AND pos_id = $3
        RETURNING id, status, assigned_kitchen_user, session_id`,
-      [orderId, targetKitchenUserId]
+      [orderId, targetKitchenUserId, posId]
     );
 
     await commitTransaction(client);
+
+    console.log(`KITCHEN_ORDER_ASSIGNED pos=${posId} order=${orderId} kitchenUser=${targetKitchenUserId}`);
 
     emitKitchenOrderAssigned(orderId, targetKitchenUserId, updated.rows[0].session_id);
 
@@ -352,15 +354,17 @@ export async function markKitchenItemPrepared(req, res) {
          SET status = 'preparing',
              started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
              assigned_kitchen_user = COALESCE(assigned_kitchen_user, $2)
-         WHERE id = $1
+         WHERE id = $1 AND pos_id = $3
          RETURNING status`,
-        [orderId, req.user.id]
+        [orderId, req.user.id, posId]
       );
       nextStatus = statusUpdate.rows[0].status;
     }
 
     const progress = await getOrderProgress(client, orderId);
     await commitTransaction(client);
+
+    console.log(`KITCHEN_ITEM_PREPARED pos=${posId} order=${orderId} item=${itemId} user=${req.user.id}`);
 
     emitOrderItemPrepared(orderId, itemId, orderRes.rows[0].session_id, req.user.id);
     if (nextStatus === 'preparing' && orderRes.rows[0].status !== 'preparing') {
@@ -431,24 +435,36 @@ export async function updateKitchenOrderStatus(req, res) {
 
     const updated = await client.query(
       `UPDATE orders
-       SET status = $2,
-           started_at = CASE WHEN $2 = 'preparing' THEN COALESCE(started_at, CURRENT_TIMESTAMP) ELSE started_at END,
-           completed_at = CASE WHEN $2 = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
+       SET status = $2::varchar,
+         started_at = CASE WHEN $2::text = 'preparing' THEN COALESCE(started_at, CURRENT_TIMESTAMP) ELSE started_at END,
+         completed_at = CASE WHEN $2::text = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END,
            assigned_kitchen_user = COALESCE(assigned_kitchen_user, $3)
-       WHERE id = $1
+       WHERE id = $1 AND pos_id = $4
        RETURNING id, status, started_at, completed_at, assigned_kitchen_user, session_id`,
-      [orderId, status, req.user.id]
+      [orderId, status, req.user.id, posId]
     );
+
+    if (!updated.rows[0]) {
+      await rollbackTransaction(client);
+      return res.status(409).json({ error: 'Order update conflict. Please refresh and retry.' });
+    }
 
     await commitTransaction(client);
 
-    emitOrderStatusUpdated(orderId, status, updated.rows[0].session_id);
+    console.log(`KITCHEN_STATUS_UPDATED pos=${posId} order=${orderId} status=${status} user=${req.user.id}`);
+
+    try {
+      emitOrderStatusUpdated(orderId, status, updated.rows[0].session_id);
+    } catch (emitErr) {
+      console.error('emitOrderStatusUpdated failed:', emitErr.message);
+    }
 
     return res.status(200).json({
       order: updated.rows[0],
       progress,
     });
   } catch (err) {
+    console.error('updateKitchenOrderStatus failed:', err.message);
     await rollbackTransaction(client);
     return res.status(500).json({ error: 'Failed to update order status' });
   }

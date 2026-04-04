@@ -1,0 +1,454 @@
+﻿[
+    {
+        "step":  "admin-login",
+        "method":  "POST",
+        "url":  "http://localhost:3010/auth/login",
+        "requestBody":  {
+                            "password":  "Passw0rd!",
+                            "email":  "admin_fix_1775335264@example.com"
+                        },
+        "statusCode":  200,
+        "responseBody":  {
+                             "token":  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3MTQwOTViMC1iOWE5LTQ2YzMtYTdiOC1jM2MyMWVjZWU0YzUiLCJlbWFpbCI6ImFkbWluX2ZpeF8xNzc1MzM1MjY0QGV4YW1wbGUuY29tIiwicm9sZSI6ImFkbWluIiwicG9zSWQiOiIwODI3OWQzNS0wM2RkLTQ4M2YtOWYyNC02OWMyYjY5OWQ1ZmIiLCJpYXQiOjE3NzUzMzU0MDgsImV4cCI6MTc3NTQyMTgwOH0.NTXLBo0sjdFrqkeQ3nZvZbMgjfRyVGMvemn5xd5l7sc",
+                             "user":  {
+                                          "id":  "714095b0-b9a9-46c3-a7b8-c3c21ecee4c5",
+                                          "name":  "Admin User",
+                                          "email":  "admin_fix_1775335264@example.com",
+                                          "role":  "admin",
+                                          "posId":  "08279d35-03dd-483f-9f24-69c2b699d5fb"
+                                      }
+                         }
+    },
+    {
+        "step":  "staff-login",
+        "method":  "POST",
+        "url":  "http://localhost:3010/auth/login",
+        "requestBody":  {
+                            "password":  "Passw0rd!",
+                            "email":  "staff_fix_1775335264@example.com"
+                        },
+        "statusCode":  200,
+        "responseBody":  {
+                             "token":  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5YjY4NDcxMS0xZGE4LTQ0ZWMtODc4YS0wY2QyYmU3MTRhMzUiLCJlbWFpbCI6InN0YWZmX2ZpeF8xNzc1MzM1MjY0QGV4YW1wbGUuY29tIiwicm9sZSI6InN0YWZmIiwicG9zSWQiOiIwODI3OWQzNS0wM2RkLTQ4M2YtOWYyNC02OWMyYjY5OWQ1ZmIiLCJpYXQiOjE3NzUzMzU0MDksImV4cCI6MTc3NTQyMTgwOX0.bgqPQ_u68psme7XdGVQPf3LJt8V4ekVv-IQKkrbTqEA",
+                             "user":  {
+                                          "id":  "9b684711-1da8-44ec-878a-0cd2be714a35",
+                                          "name":  "Staff User",
+                                          "email":  "staff_fix_1775335264@example.com",
+                                          "role":  "staff",
+                                          "posId":  "08279d35-03dd-483f-9f24-69c2b699d5fb"
+                                      }
+                         }
+    },
+    {
+        "step":  "kitchen-login",
+        "method":  "POST",
+        "url":  "http://localhost:3010/auth/login",
+        "requestBody":  {
+                            "password":  "Passw0rd!",
+                            "email":  "kitchen_fix_1775335264@example.com"
+                        },
+        "statusCode":  200,
+        "responseBody":  {
+                             "token":  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlYTU2ZjAwNS04YjI4LTRlZWEtODRiOS0yMDI0YTIzNmZjNGQiLCJlbWFpbCI6ImtpdGNoZW5fZml4XzE3NzUzMzUyNjRAZXhhbXBsZS5jb20iLCJyb2xlIjoia2l0Y2hlbiIsInBvc0lkIjoiMDgyNzlkMzUtMDNkZC00ODNmLTlmMjQtNjljMmI2OTlkNWZiIiwiaWF0IjoxNzc1MzM1NDA5LCJleHAiOjE3NzU0MjE4MDl9.XFYc-DOY3wKRCzDib-xFlyCJJL920FUUa4a9BbLmbeQ",
+                             "user":  {
+                                          "id":  "ea56f005-8b28-4eea-84b9-2024a236fc4d",
+                                          "name":  "Kitchen User",
+                                          "email":  "kitchen_fix_1775335264@example.com",
+                                          "role":  "kitchen",
+                                          "posId":  "08279d35-03dd-483f-9f24-69c2b699d5fb"
+                                      }
+                         }
+    },
+    {
+        "step":  "kitchen-order-545520b8-2548-4eb4-94b8-d18beaade3a0",
+        "method":  "GET",
+        "url":  "http://localhost:3010/kitchen/orders/545520b8-2548-4eb4-94b8-d18beaade3a0",
+        "requestBody":  null,
+        "statusCode":  200,
+        "responseBody":  {
+                             "order":  {
+                                           "id":  "545520b8-2548-4eb4-94b8-d18beaade3a0",
+                                           "status":  "preparing",
+                                           "session_id":  "f9d15ac8-38ec-4de9-a981-9ded9675dce8",
+                                           "table_id":  "7ddf2b25-0599-4950-87ed-2f7794274842",
+                                           "assigned_kitchen_user":  "55d1967e-1142-40ad-9390-1483545ef307",
+                                           "assigned_kitchen_user_name":  "Kitchen User",
+                                           "created_at":  "2026-04-04T20:35:04.929Z",
+                                           "started_at":  "2026-04-04T20:35:05.023Z",
+                                           "completed_at":  null,
+                                           "table_number":  1,
+                                           "floor_name":  "Floor_1775334902",
+                                           "items":  [
+                                                         {
+                                                             "itemId":  "b45b88f8-3173-4592-aab3-07da16a400f0",
+                                                             "productId":  "8ae0ad68-bb56-4a16-ad4b-edb0c805c08a",
+                                                             "name":  "Prod_1775334902",
+                                                             "quantity":  2,
+                                                             "isPrepared":  true,
+                                                             "preparedAt":  "2026-04-05T02:05:05.763658",
+                                                             "preparedBy":  "55d1967e-1142-40ad-9390-1483545ef307"
+                                                         }
+                                                     ],
+                                           "total_items":  1,
+                                           "prepared_items":  1
+                                       }
+                         }
+    },
+    {
+        "step":  "kitchen-order2-545520b8-2548-4eb4-94b8-d18beaade3a0",
+        "method":  "GET",
+        "url":  "http://localhost:3010/kitchen/orders/545520b8-2548-4eb4-94b8-d18beaade3a0",
+        "requestBody":  null,
+        "statusCode":  200,
+        "responseBody":  {
+                             "order":  {
+                                           "id":  "545520b8-2548-4eb4-94b8-d18beaade3a0",
+                                           "status":  "preparing",
+                                           "session_id":  "f9d15ac8-38ec-4de9-a981-9ded9675dce8",
+                                           "table_id":  "7ddf2b25-0599-4950-87ed-2f7794274842",
+                                           "assigned_kitchen_user":  "55d1967e-1142-40ad-9390-1483545ef307",
+                                           "assigned_kitchen_user_name":  "Kitchen User",
+                                           "created_at":  "2026-04-04T20:35:04.929Z",
+                                           "started_at":  "2026-04-04T20:35:05.023Z",
+                                           "completed_at":  null,
+                                           "table_number":  1,
+                                           "floor_name":  "Floor_1775334902",
+                                           "items":  [
+                                                         {
+                                                             "itemId":  "b45b88f8-3173-4592-aab3-07da16a400f0",
+                                                             "productId":  "8ae0ad68-bb56-4a16-ad4b-edb0c805c08a",
+                                                             "name":  "Prod_1775334902",
+                                                             "quantity":  2,
+                                                             "isPrepared":  true,
+                                                             "preparedAt":  "2026-04-05T02:05:05.763658",
+                                                             "preparedBy":  "55d1967e-1142-40ad-9390-1483545ef307"
+                                                         }
+                                                     ],
+                                           "total_items":  1,
+                                           "prepared_items":  1
+                                       }
+                         }
+    },
+    {
+        "step":  "kitchen-complete-545520b8-2548-4eb4-94b8-d18beaade3a0",
+        "method":  "PATCH",
+        "url":  "http://localhost:3010/kitchen/orders/545520b8-2548-4eb4-94b8-d18beaade3a0/status",
+        "requestBody":  {
+                            "status":  "completed"
+                        },
+        "statusCode":  200,
+        "responseBody":  {
+                             "order":  {
+                                           "id":  "545520b8-2548-4eb4-94b8-d18beaade3a0",
+                                           "status":  "completed",
+                                           "started_at":  "2026-04-04T20:35:05.023Z",
+                                           "completed_at":  "2026-04-04T20:43:29.800Z",
+                                           "assigned_kitchen_user":  "55d1967e-1142-40ad-9390-1483545ef307",
+                                           "session_id":  "f9d15ac8-38ec-4de9-a981-9ded9675dce8"
+                                       },
+                             "progress":  {
+                                              "total_items":  1,
+                                              "prepared_items":  1
+                                          }
+                         }
+    },
+    {
+        "step":  "staff-pay-545520b8-2548-4eb4-94b8-d18beaade3a0",
+        "method":  "POST",
+        "url":  "http://localhost:3010/staff/orders/545520b8-2548-4eb4-94b8-d18beaade3a0/payment",
+        "requestBody":  {
+                            "method":  "cash",
+                            "amount":  241
+                        },
+        "statusCode":  200,
+        "responseBody":  {
+                             "payment":  {
+                                             "id":  "5b7664a8-da43-47cf-a13a-f7ea8a3dfce6",
+                                             "order_id":  "545520b8-2548-4eb4-94b8-d18beaade3a0",
+                                             "pos_id":  "08279d35-03dd-483f-9f24-69c2b699d5fb",
+                                             "method":  "cash",
+                                             "status":  "completed",
+                                             "amount":  "241.00",
+                                             "upi_reference":  null,
+                                             "change_amount":  "0.00",
+                                             "created_at":  "2026-04-04T20:43:29.843Z"
+                                         },
+                             "order":  {
+                                           "id":  "545520b8-2548-4eb4-94b8-d18beaade3a0",
+                                           "status":  "paid",
+                                           "total_price":  "241.00",
+                                           "paid_at":  "2026-04-04T20:43:29.843Z",
+                                           "table_id":  "7ddf2b25-0599-4950-87ed-2f7794274842"
+                                       }
+                         }
+    },
+    {
+        "step":  "kitchen-order-f216c346-3c21-4968-a263-ea15fd8ca055",
+        "method":  "GET",
+        "url":  "http://localhost:3010/kitchen/orders/f216c346-3c21-4968-a263-ea15fd8ca055",
+        "requestBody":  null,
+        "statusCode":  200,
+        "responseBody":  {
+                             "order":  {
+                                           "id":  "f216c346-3c21-4968-a263-ea15fd8ca055",
+                                           "status":  "preparing",
+                                           "session_id":  "f9d15ac8-38ec-4de9-a981-9ded9675dce8",
+                                           "table_id":  "970b85be-f279-4dc5-b041-83b5d25cbdd0",
+                                           "assigned_kitchen_user":  "ea56f005-8b28-4eea-84b9-2024a236fc4d",
+                                           "assigned_kitchen_user_name":  "Kitchen User",
+                                           "created_at":  "2026-04-04T20:41:06.777Z",
+                                           "started_at":  "2026-04-04T20:41:06.858Z",
+                                           "completed_at":  null,
+                                           "table_number":  1,
+                                           "floor_name":  "FloorFix_1775335264",
+                                           "items":  [
+                                                         {
+                                                             "itemId":  "98833225-5356-4bea-b81a-e27d335265f1",
+                                                             "productId":  "f453ca43-178c-40c5-b67d-9974bdd165ab",
+                                                             "name":  "ProdFix_1775335264",
+                                                             "quantity":  2,
+                                                             "isPrepared":  true,
+                                                             "preparedAt":  "2026-04-05T02:11:07.527705",
+                                                             "preparedBy":  "ea56f005-8b28-4eea-84b9-2024a236fc4d"
+                                                         }
+                                                     ],
+                                           "total_items":  1,
+                                           "prepared_items":  1
+                                       }
+                         }
+    },
+    {
+        "step":  "kitchen-order2-f216c346-3c21-4968-a263-ea15fd8ca055",
+        "method":  "GET",
+        "url":  "http://localhost:3010/kitchen/orders/f216c346-3c21-4968-a263-ea15fd8ca055",
+        "requestBody":  null,
+        "statusCode":  200,
+        "responseBody":  {
+                             "order":  {
+                                           "id":  "f216c346-3c21-4968-a263-ea15fd8ca055",
+                                           "status":  "preparing",
+                                           "session_id":  "f9d15ac8-38ec-4de9-a981-9ded9675dce8",
+                                           "table_id":  "970b85be-f279-4dc5-b041-83b5d25cbdd0",
+                                           "assigned_kitchen_user":  "ea56f005-8b28-4eea-84b9-2024a236fc4d",
+                                           "assigned_kitchen_user_name":  "Kitchen User",
+                                           "created_at":  "2026-04-04T20:41:06.777Z",
+                                           "started_at":  "2026-04-04T20:41:06.858Z",
+                                           "completed_at":  null,
+                                           "table_number":  1,
+                                           "floor_name":  "FloorFix_1775335264",
+                                           "items":  [
+                                                         {
+                                                             "itemId":  "98833225-5356-4bea-b81a-e27d335265f1",
+                                                             "productId":  "f453ca43-178c-40c5-b67d-9974bdd165ab",
+                                                             "name":  "ProdFix_1775335264",
+                                                             "quantity":  2,
+                                                             "isPrepared":  true,
+                                                             "preparedAt":  "2026-04-05T02:11:07.527705",
+                                                             "preparedBy":  "ea56f005-8b28-4eea-84b9-2024a236fc4d"
+                                                         }
+                                                     ],
+                                           "total_items":  1,
+                                           "prepared_items":  1
+                                       }
+                         }
+    },
+    {
+        "step":  "kitchen-complete-f216c346-3c21-4968-a263-ea15fd8ca055",
+        "method":  "PATCH",
+        "url":  "http://localhost:3010/kitchen/orders/f216c346-3c21-4968-a263-ea15fd8ca055/status",
+        "requestBody":  {
+                            "status":  "completed"
+                        },
+        "statusCode":  200,
+        "responseBody":  {
+                             "order":  {
+                                           "id":  "f216c346-3c21-4968-a263-ea15fd8ca055",
+                                           "status":  "completed",
+                                           "started_at":  "2026-04-04T20:41:06.858Z",
+                                           "completed_at":  "2026-04-04T20:43:29.957Z",
+                                           "assigned_kitchen_user":  "ea56f005-8b28-4eea-84b9-2024a236fc4d",
+                                           "session_id":  "f9d15ac8-38ec-4de9-a981-9ded9675dce8"
+                                       },
+                             "progress":  {
+                                              "total_items":  1,
+                                              "prepared_items":  1
+                                          }
+                         }
+    },
+    {
+        "step":  "staff-pay-f216c346-3c21-4968-a263-ea15fd8ca055",
+        "method":  "POST",
+        "url":  "http://localhost:3010/staff/orders/f216c346-3c21-4968-a263-ea15fd8ca055/payment",
+        "requestBody":  {
+                            "method":  "cash",
+                            "amount":  241
+                        },
+        "statusCode":  200,
+        "responseBody":  {
+                             "payment":  {
+                                             "id":  "85e899eb-17ee-42e4-8319-419577a2484f",
+                                             "order_id":  "f216c346-3c21-4968-a263-ea15fd8ca055",
+                                             "pos_id":  "08279d35-03dd-483f-9f24-69c2b699d5fb",
+                                             "method":  "cash",
+                                             "status":  "completed",
+                                             "amount":  "241.00",
+                                             "upi_reference":  null,
+                                             "change_amount":  "0.00",
+                                             "created_at":  "2026-04-04T20:43:29.990Z"
+                                         },
+                             "order":  {
+                                           "id":  "f216c346-3c21-4968-a263-ea15fd8ca055",
+                                           "status":  "paid",
+                                           "total_price":  "241.00",
+                                           "paid_at":  "2026-04-04T20:43:29.990Z",
+                                           "table_id":  "970b85be-f279-4dc5-b041-83b5d25cbdd0"
+                                       }
+                         }
+    },
+    {
+        "step":  "staff-close-session",
+        "method":  "PATCH",
+        "url":  "http://localhost:3010/staff/sessions/current/close",
+        "requestBody":  null,
+        "statusCode":  200,
+        "responseBody":  {
+                             "session":  {
+                                             "id":  "f9d15ac8-38ec-4de9-a981-9ded9675dce8",
+                                             "pos_id":  "08279d35-03dd-483f-9f24-69c2b699d5fb",
+                                             "status":  "closed",
+                                             "opened_at":  "2026-04-04T20:35:04.860Z",
+                                             "closed_at":  "2026-04-04T20:43:30.027Z",
+                                             "total_sales":  "482.00",
+                                             "total_orders":  2,
+                                             "closed_by":  "9b684711-1da8-44ec-878a-0cd2be714a35"
+                                         }
+                         }
+    },
+    {
+        "step":  "admin-session-summary",
+        "method":  "GET",
+        "url":  "http://localhost:3010/admin/sessions/f9d15ac8-38ec-4de9-a981-9ded9675dce8/summary",
+        "requestBody":  null,
+        "statusCode":  200,
+        "responseBody":  {
+                             "session":  {
+                                             "id":  "f9d15ac8-38ec-4de9-a981-9ded9675dce8",
+                                             "opened_by":  "403e6452-127c-4320-97d3-524f9cd61b23",
+                                             "opened_by_name":  "Staff User",
+                                             "opened_at":  "2026-04-04T20:35:04.860Z",
+                                             "closed_at":  "2026-04-04T20:43:30.027Z",
+                                             "status":  "closed",
+                                             "total_sales":  "482.00",
+                                             "total_orders":  2
+                                         },
+                             "summary":  {
+                                             "total_orders":  2,
+                                             "paid_orders":  2,
+                                             "revenue":  "482.00"
+                                         },
+                             "paymentBreakdown":  [
+                                                      {
+                                                          "method":  "cash",
+                                                          "count":  2,
+                                                          "total":  "482.00"
+                                                      }
+                                                  ]
+                         }
+    },
+    {
+        "step":  "admin-dashboard",
+        "method":  "GET",
+        "url":  "http://localhost:3010/admin/dashboard",
+        "requestBody":  null,
+        "statusCode":  200,
+        "responseBody":  {
+                             "sessions":  {
+                                              "open_sessions":  0,
+                                              "active_sessions":  0,
+                                              "closed_sessions":  1
+                                          },
+                             "orders":  {
+                                            "total_orders":  2,
+                                            "paid_orders":  2,
+                                            "kitchen_active":  0,
+                                            "revenue":  "482.00"
+                                        },
+                             "products":  {
+                                              "total_products":  2,
+                                              "available_products":  2
+                                          },
+                             "tables":  {
+                                            "total_tables":  2,
+                                            "occupied_tables":  0,
+                                            "available_tables":  2
+                                        }
+                         }
+    },
+    {
+        "step":  "admin-sales-report",
+        "method":  "GET",
+        "url":  "http://localhost:3010/admin/reports/sales",
+        "requestBody":  null,
+        "statusCode":  200,
+        "responseBody":  {
+                             "filters":  {
+                                             "fromDate":  null,
+                                             "toDate":  null,
+                                             "sessionId":  null,
+                                             "staffId":  null,
+                                             "productId":  null
+                                         },
+                             "totals":  {
+                                            "order_count":  2,
+                                            "total_revenue":  "482.00",
+                                            "avg_order_value":  "241.0000000000000000"
+                                        },
+                             "timeline":  [
+                                              {
+                                                  "day":  "2026-04-04T18:30:00.000Z",
+                                                  "order_count":  2,
+                                                  "revenue":  "482.00"
+                                              }
+                                          ],
+                             "byStaff":  [
+                                             {
+                                                 "staff_id":  "403e6452-127c-4320-97d3-524f9cd61b23",
+                                                 "staff_name":  "Staff User",
+                                                 "order_count":  1,
+                                                 "revenue":  "241.00"
+                                             },
+                                             {
+                                                 "staff_id":  "9b684711-1da8-44ec-878a-0cd2be714a35",
+                                                 "staff_name":  "Staff User",
+                                                 "order_count":  1,
+                                                 "revenue":  "241.00"
+                                             }
+                                         ]
+                         }
+    },
+    {
+        "step":  "admin-top-products",
+        "method":  "GET",
+        "url":  "http://localhost:3010/admin/reports/top-products?limit=5",
+        "requestBody":  null,
+        "statusCode":  200,
+        "responseBody":  {
+                             "topProducts":  [
+                                                 {
+                                                     "product_id":  "8ae0ad68-bb56-4a16-ad4b-edb0c805c08a",
+                                                     "product_name":  "Prod_1775334902",
+                                                     "category_name":  "Cat_1775334902",
+                                                     "quantity_sold":  2,
+                                                     "revenue":  "241.00"
+                                                 },
+                                                 {
+                                                     "product_id":  "f453ca43-178c-40c5-b67d-9974bdd165ab",
+                                                     "product_name":  "ProdFix_1775335264",
+                                                     "category_name":  "CatFix_1775335264",
+                                                     "quantity_sold":  2,
+                                                     "revenue":  "241.00"
+                                                 }
+                                             ]
+                         }
+    }
+]
