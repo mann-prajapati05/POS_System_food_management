@@ -22,6 +22,7 @@ function createToken(user) {
       sub: user.id,
       email: user.email,
       role: user.role,
+      posId: user.pos_id,
     },
     getJwtSecret(),
     { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
@@ -60,10 +61,17 @@ export async function signup(req, res) {
     const passwordHash = await bcrypt.hash(password, 12);
 
     const result = await query(
-      `INSERT INTO users (name, email, password, role)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, name, email, role, created_at`,
+      `INSERT INTO users (name, email, password, role, pos_id)
+       VALUES ($1, $2, $3, $4, (SELECT id FROM pos ORDER BY created_at ASC LIMIT 1))
+       RETURNING id, name, email, role, pos_id, created_at`,
       [name.trim(), String(email).toLowerCase().trim(), passwordHash, role]
+    );
+
+    await query(
+      `INSERT INTO user_pos_access (user_id, pos_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, pos_id) DO NOTHING`,
+      [result.rows[0].id, result.rows[0].pos_id]
     );
 
     const token = createToken(result.rows[0]);
@@ -93,7 +101,7 @@ export async function login(req, res) {
     }
 
     const result = await query(
-      `SELECT id, name, email, password, role, is_active
+      `SELECT id, name, email, password, role, pos_id, is_active
        FROM users
        WHERE email = $1`,
       [String(email).toLowerCase().trim()]
@@ -119,6 +127,7 @@ export async function login(req, res) {
         name: user.name,
         email: user.email,
         role: user.role,
+        posId: user.pos_id,
       },
     });
   } catch (err) {

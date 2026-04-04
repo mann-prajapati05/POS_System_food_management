@@ -1,6 +1,6 @@
 import express from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
-import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
+import { requireAuth, attachPOSContext, authorizeRole } from '../middleware/authMiddleware.js';
 import {
   createUser,
   listUsers,
@@ -22,6 +22,8 @@ import {
   listPaymentMethods,
   updatePaymentMethod,
   listSessions,
+  openPosSession,
+  closeActiveSession,
   getAdminSessionSummary,
   getSalesReport,
   getTopProducts,
@@ -30,7 +32,7 @@ import {
 
 const router = express.Router();
 
-router.use(authenticateToken, authorizeRoles('admin'));
+router.use(requireAuth, attachPOSContext, authorizeRole('admin'));
 
 router.get('/dashboard', asyncHandler(getAdminDashboard));
 
@@ -59,6 +61,8 @@ router.get('/payment-methods', asyncHandler(listPaymentMethods));
 router.patch('/payment-methods/:method', asyncHandler(updatePaymentMethod));
 
 router.get('/sessions', asyncHandler(listSessions));
+router.post('/sessions/open', asyncHandler(openPosSession));
+router.patch('/sessions/current/close', asyncHandler(closeActiveSession));
 router.get('/sessions/:sessionId/summary', asyncHandler(getAdminSessionSummary));
 
 router.get('/reports/sales', asyncHandler(getSalesReport));

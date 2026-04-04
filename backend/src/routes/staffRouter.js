@@ -13,12 +13,17 @@ import {
   sendOrderToKitchen,
   updateOrderItem,
 } from '../controllers/staffController.js';
-import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
+import {
+  requireAuth,
+  attachPOSContext,
+  authorizeRole,
+  enforceActiveSession,
+} from '../middleware/authMiddleware.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
-router.use(authenticateToken, authorizeRoles('staff'));
+router.use(requireAuth, attachPOSContext, authorizeRole('staff'));
 
 router.post('/sessions/open', asyncHandler(openSession));
 router.get('/sessions/current', asyncHandler(getCurrentSession));
@@ -27,12 +32,12 @@ router.get('/sessions/:sessionId/summary', asyncHandler(getSessionSummary));
 
 router.get('/floors-tables', asyncHandler(listFloorsAndTables));
 
-router.post('/orders', asyncHandler(createOrder));
-router.post('/orders/:orderId/items', asyncHandler(addOrderItem));
-router.patch('/orders/:orderId/items/:itemId', asyncHandler(updateOrderItem));
-router.delete('/orders/:orderId/items/:itemId', asyncHandler(removeOrderItem));
-router.patch('/orders/:orderId/send-to-kitchen', asyncHandler(sendOrderToKitchen));
+router.post('/orders', enforceActiveSession, asyncHandler(createOrder));
+router.post('/orders/:orderId/items', enforceActiveSession, asyncHandler(addOrderItem));
+router.patch('/orders/:orderId/items/:itemId', enforceActiveSession, asyncHandler(updateOrderItem));
+router.delete('/orders/:orderId/items/:itemId', enforceActiveSession, asyncHandler(removeOrderItem));
+router.patch('/orders/:orderId/send-to-kitchen', enforceActiveSession, asyncHandler(sendOrderToKitchen));
 router.get('/orders/:orderId/status', asyncHandler(getOrderStatus));
-router.post('/orders/:orderId/payment', asyncHandler(processPayment));
+router.post('/orders/:orderId/payment', enforceActiveSession, asyncHandler(processPayment));
 
 export default router;

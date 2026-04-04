@@ -1,6 +1,6 @@
 import express from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
-import { authenticateToken, authorizeRoles } from '../middleware/authMiddleware.js';
+import { requireAuth, attachPOSContext, authorizeRole } from '../middleware/authMiddleware.js';
 import {
   assignKitchenOrder,
   getKitchenBoard,
@@ -12,7 +12,7 @@ import {
 
 const router = express.Router();
 
-router.use(authenticateToken, authorizeRoles('kitchen'));
+router.use(requireAuth, attachPOSContext, authorizeRole('kitchen'));
 
 router.get('/orders', asyncHandler(getKitchenOrders));
 router.get('/board', asyncHandler(getKitchenBoard));

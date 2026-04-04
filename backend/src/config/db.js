@@ -52,33 +52,6 @@ async function readSchemaSql() {
   return readFile(schemaPath, 'utf8');
 }
 
-async function ensureAdminCompatibilitySchema() {
-  await pool.query('ALTER TABLE floors ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;');
-  await pool.query('ALTER TABLE tables ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;');
-
-  await pool.query(
-    `CREATE TABLE IF NOT EXISTS payment_method_settings (
-      method VARCHAR(50) PRIMARY KEY CHECK (method IN ('cash', 'card', 'upi')),
-      enabled BOOLEAN NOT NULL DEFAULT TRUE,
-      upi_id VARCHAR(255),
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`
-  );
-
-  await pool.query(
-    `INSERT INTO payment_method_settings (method, enabled)
-     VALUES ('cash', true), ('card', true), ('upi', true)
-     ON CONFLICT (method) DO NOTHING`
-  );
-}
-
-async function ensureKitchenCompatibilitySchema() {
-  await pool.query('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS is_prepared BOOLEAN DEFAULT FALSE;');
-  await pool.query('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS prepared_at TIMESTAMP;');
-  await pool.query('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS prepared_by UUID REFERENCES users(id) ON DELETE SET NULL;');
-  await pool.query('CREATE INDEX IF NOT EXISTS idx_order_items_order_prepared ON order_items(order_id, is_prepared);');
-}
-
 export async function ensureDatabaseAndSchema() {
   const maintenanceDb = process.env.DB_MAINTENANCE_DB || 'postgres';
   const adminPool = new Pool({
@@ -117,9 +90,6 @@ export async function ensureDatabaseAndSchema() {
     await pool.query(schemaSql);
     console.log('Schema initialized');
   }
-
-  await ensureAdminCompatibilitySchema();
-  await ensureKitchenCompatibilitySchema();
 }
 
 export async function testConnection() {

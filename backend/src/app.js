@@ -35,7 +35,9 @@ app.use('/auth', authRouter);
 app.use('/staff', staffRouter);
 app.use('/admin', adminRouter);
 app.use('/kitchen', kitchenRouter);
-app.use('/orders', OrderRouter);
+if (process.env.ENABLE_LEGACY_ORDER_ROUTES === 'true') {
+  app.use('/orders', OrderRouter);
+}
 
 app.get('/health', async (req, res) => {
   try {

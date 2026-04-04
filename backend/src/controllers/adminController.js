@@ -31,8 +31,41 @@ function parseBoolean(value, defaultValue = null) {
   return null;
 }
 
+async function getAccessiblePosIds(adminUserId) {
+  const accessRes = await query(
+    `SELECT pos_id
+     FROM user_pos_access
+     WHERE user_id = $1`,
+    [adminUserId]
+  );
+
+  return accessRes.rows.map((row) => row.pos_id);
+}
+
+async function resolveAdminPosScope(req, posIdCandidate) {
+  const allowedPosIds = await getAccessiblePosIds(req.user.id);
+  if (allowedPosIds.length === 0) {
+    return { error: 'No POS access configured for this admin', status: 403 };
+  }
+
+  const requestedPosId = posIdCandidate || req.query.posId || req.body.posId || null;
+  if (!requestedPosId) {
+    return { posIds: allowedPosIds, selectedPosId: req.user.posId };
+  }
+
+  if (!allowedPosIds.includes(requestedPosId)) {
+    return { error: 'Forbidden for requested POS', status: 403 };
+  }
+
+  return { posIds: [requestedPosId], selectedPosId: requestedPosId };
+}
+
 export async function createUser(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { name, email, password, role } = req.body;
 
     if (!name || !email || !password || !role) {
@@ -54,10 +87,17 @@ export async function createUser(req, res) {
     const passwordHash = await bcrypt.hash(password, 12);
 
     const result = await query(
-      `INSERT INTO users (name, email, password, role, is_active)
-       VALUES ($1, $2, $3, $4, true)
-       RETURNING id, name, email, role, is_active, created_at, updated_at`,
-      [name.trim(), String(email).toLowerCase().trim(), passwordHash, role]
+      `INSERT INTO users (name, email, password, role, pos_id, is_active)
+       VALUES ($1, $2, $3, $4, $5, true)
+       RETURNING id, name, email, role, pos_id, is_active, created_at, updated_at`,
+      [name.trim(), String(email).toLowerCase().trim(), passwordHash, role, scope.selectedPosId]
+    );
+
+    await query(
+      `INSERT INTO user_pos_access (user_id, pos_id)
+       VALUES ($1, $2)
+       ON CONFLICT (user_id, pos_id) DO NOTHING`,
+      [result.rows[0].id, scope.selectedPosId]
     );
 
     return res.status(201).json({ user: result.rows[0] });
@@ -71,9 +111,13 @@ export async function createUser(req, res) {
 
 export async function listUsers(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { role, isActive, q } = req.query;
-    const values = [];
-    const where = [];
+    const values = [scope.posIds];
+    const where = ['pos_id = ANY($1::uuid[])'];
 
     if (role) {
       if (!USER_ROLES.has(role)) {
@@ -113,6 +157,10 @@ export async function listUsers(req, res) {
 
 export async function updateUser(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { userId } = req.params;
     const { name, role, isActive } = req.body;
 
@@ -153,12 +201,13 @@ export async function updateUser(req, res) {
     }
 
     values.push(userId);
+    values.push(scope.posIds);
 
     const result = await query(
       `UPDATE users
        SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $${values.length}
-       RETURNING id, name, email, role, is_active, created_at, updated_at`,
+       WHERE id = $${values.length - 1} AND pos_id = ANY($${values.length}::uuid[])
+       RETURNING id, name, email, role, pos_id, is_active, created_at, updated_at`,
       values
     );
 
@@ -174,6 +223,10 @@ export async function updateUser(req, res) {
 
 export async function deleteUser(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId || req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { userId } = req.params;
 
     if (!isUuid(userId)) {
@@ -182,18 +235,18 @@ export async function deleteUser(req, res) {
 
     const dependencyCheck = await query(
       `SELECT
-         EXISTS(SELECT 1 FROM pos_sessions WHERE opened_by = $1) AS has_sessions,
-         EXISTS(SELECT 1 FROM orders WHERE created_by = $1 OR assigned_kitchen_user = $1) AS has_orders`,
-      [userId]
+        EXISTS(SELECT 1 FROM pos_sessions WHERE opened_by = $1 AND pos_id = ANY($2::uuid[])) AS has_sessions,
+        EXISTS(SELECT 1 FROM orders WHERE pos_id = ANY($2::uuid[]) AND (created_by = $1 OR assigned_kitchen_user = $1)) AS has_orders`,
+      [userId, scope.posIds]
     );
 
     if (dependencyCheck.rows[0]?.has_sessions || dependencyCheck.rows[0]?.has_orders) {
       const deactivated = await query(
         `UPDATE users
          SET is_active = false, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1
-         RETURNING id, name, email, role, is_active`,
-        [userId]
+         WHERE id = $1 AND pos_id = ANY($2::uuid[])
+         RETURNING id, name, email, role, pos_id, is_active`,
+        [userId, scope.posIds]
       );
 
       if (!deactivated.rows[0]) {
@@ -207,8 +260,8 @@ export async function deleteUser(req, res) {
     }
 
     const deleted = await query(
-      'DELETE FROM users WHERE id = $1 RETURNING id, name, email, role',
-      [userId]
+      'DELETE FROM users WHERE id = $1 AND pos_id = ANY($2::uuid[]) RETURNING id, name, email, role, pos_id',
+      [userId, scope.posIds]
     );
 
     if (!deleted.rows[0]) {
@@ -223,16 +276,20 @@ export async function deleteUser(req, res) {
 
 export async function createCategory(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { name, description } = req.body;
     if (!name || !String(name).trim()) {
       return res.status(400).json({ error: 'name is required' });
     }
 
     const result = await query(
-      `INSERT INTO categories (name, description)
-       VALUES ($1, $2)
-       RETURNING id, name, description, created_at`,
-      [String(name).trim(), description || null]
+      `INSERT INTO categories (name, description, pos_id)
+       VALUES ($1, $2, $3)
+       RETURNING id, name, description, pos_id, created_at`,
+      [String(name).trim(), description || null, scope.selectedPosId]
     );
 
     return res.status(201).json({ category: result.rows[0] });
@@ -246,13 +303,19 @@ export async function createCategory(req, res) {
 
 export async function listCategories(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const result = await query(
       `SELECT c.id, c.name, c.description, c.created_at,
               COUNT(p.id)::int AS product_count
        FROM categories c
-       LEFT JOIN products p ON p.category_id = c.id
+       LEFT JOIN products p ON p.category_id = c.id AND p.pos_id = c.pos_id
+       WHERE c.pos_id = ANY($1::uuid[])
        GROUP BY c.id
-       ORDER BY c.name ASC`
+       ORDER BY c.name ASC`,
+      [scope.posIds]
     );
 
     return res.status(200).json({ categories: result.rows });
@@ -263,6 +326,10 @@ export async function listCategories(req, res) {
 
 export async function updateCategory(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.body.posId || req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { categoryId } = req.params;
     const { name, description } = req.body;
 
@@ -291,12 +358,13 @@ export async function updateCategory(req, res) {
     }
 
     values.push(categoryId);
+    values.push(scope.posIds);
 
     const result = await query(
       `UPDATE categories
        SET ${updates.join(', ')}
-       WHERE id = $${values.length}
-       RETURNING id, name, description, created_at`,
+       WHERE id = $${values.length - 1} AND pos_id = ANY($${values.length}::uuid[])
+       RETURNING id, name, description, pos_id, created_at`,
       values
     );
 
@@ -315,20 +383,27 @@ export async function updateCategory(req, res) {
 
 export async function deleteCategory(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId || req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { categoryId } = req.params;
 
     if (!isUuid(categoryId)) {
       return res.status(400).json({ error: 'categoryId must be a valid UUID' });
     }
 
-    const inUse = await query('SELECT 1 FROM products WHERE category_id = $1 LIMIT 1', [categoryId]);
+    const inUse = await query(
+      'SELECT 1 FROM products WHERE category_id = $1 AND pos_id = ANY($2::uuid[]) LIMIT 1',
+      [categoryId, scope.posIds]
+    );
     if (inUse.rows[0]) {
       return res.status(409).json({ error: 'Cannot delete category with existing products' });
     }
 
     const result = await query(
-      'DELETE FROM categories WHERE id = $1 RETURNING id, name, description',
-      [categoryId]
+      'DELETE FROM categories WHERE id = $1 AND pos_id = ANY($2::uuid[]) RETURNING id, name, description, pos_id',
+      [categoryId, scope.posIds]
     );
 
     if (!result.rows[0]) {
@@ -343,6 +418,10 @@ export async function deleteCategory(req, res) {
 
 export async function createProduct(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { name, categoryId, price, description, isAvailable } = req.body;
 
     if (!name || !categoryId || price === undefined) {
@@ -358,7 +437,7 @@ export async function createProduct(req, res) {
       return res.status(400).json({ error: 'price must be a positive number' });
     }
 
-    const category = await query('SELECT id FROM categories WHERE id = $1', [categoryId]);
+    const category = await query('SELECT id FROM categories WHERE id = $1 AND pos_id = $2', [categoryId, scope.selectedPosId]);
     if (!category.rows[0]) {
       return res.status(404).json({ error: 'Category not found' });
     }
@@ -369,10 +448,10 @@ export async function createProduct(req, res) {
     }
 
     const result = await query(
-      `INSERT INTO products (name, category_id, price, description, is_available)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, category_id, price, description, is_available, created_at, updated_at`,
-      [String(name).trim(), categoryId, parsedPrice, description || null, available]
+      `INSERT INTO products (name, category_id, price, description, is_available, pos_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, category_id, price, description, is_available, pos_id, created_at, updated_at`,
+      [String(name).trim(), categoryId, parsedPrice, description || null, available, scope.selectedPosId]
     );
 
     return res.status(201).json({ product: result.rows[0] });
@@ -383,9 +462,13 @@ export async function createProduct(req, res) {
 
 export async function listProducts(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { categoryId, isAvailable, q } = req.query;
-    const values = [];
-    const where = [];
+    const values = [scope.posIds];
+    const where = ['p.pos_id = ANY($1::uuid[])'];
 
     if (categoryId) {
       if (!isUuid(categoryId)) {
@@ -435,6 +518,10 @@ export async function listProducts(req, res) {
 
 export async function updateProduct(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { productId } = req.params;
     const { name, categoryId, price, description, isAvailable } = req.body;
 
@@ -457,7 +544,7 @@ export async function updateProduct(req, res) {
       if (!isUuid(categoryId)) {
         return res.status(400).json({ error: 'categoryId must be a valid UUID' });
       }
-      const category = await query('SELECT id FROM categories WHERE id = $1', [categoryId]);
+      const category = await query('SELECT id FROM categories WHERE id = $1 AND pos_id = ANY($2::uuid[])', [categoryId, scope.posIds]);
       if (!category.rows[0]) {
         return res.status(404).json({ error: 'Category not found' });
       }
@@ -493,12 +580,13 @@ export async function updateProduct(req, res) {
     }
 
     values.push(productId);
+    values.push(scope.posIds);
 
     const result = await query(
       `UPDATE products
        SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $${values.length}
-       RETURNING id, name, category_id, price, description, is_available, created_at, updated_at`,
+       WHERE id = $${values.length - 1} AND pos_id = ANY($${values.length}::uuid[])
+       RETURNING id, name, category_id, price, description, is_available, pos_id, created_at, updated_at`,
       values
     );
 
@@ -514,6 +602,10 @@ export async function updateProduct(req, res) {
 
 export async function updateProductAvailability(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.body.posId || req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { productId } = req.params;
     const { isAvailable } = req.body;
 
@@ -529,9 +621,9 @@ export async function updateProductAvailability(req, res) {
     const result = await query(
       `UPDATE products
        SET is_available = $2, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $1
-       RETURNING id, name, is_available, updated_at`,
-      [productId, parsed]
+       WHERE id = $1 AND pos_id = ANY($3::uuid[])
+       RETURNING id, name, is_available, pos_id, updated_at`,
+      [productId, parsed, scope.posIds]
     );
 
     if (!result.rows[0]) {
@@ -546,20 +638,31 @@ export async function updateProductAvailability(req, res) {
 
 export async function deleteProduct(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId || req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { productId } = req.params;
 
     if (!isUuid(productId)) {
       return res.status(400).json({ error: 'productId must be a valid UUID' });
     }
 
-    const inUse = await query('SELECT 1 FROM order_items WHERE product_id = $1 LIMIT 1', [productId]);
+    const inUse = await query(
+      `SELECT 1
+       FROM order_items oi
+       INNER JOIN orders o ON o.id = oi.order_id
+       WHERE oi.product_id = $1 AND o.pos_id = ANY($2::uuid[])
+       LIMIT 1`,
+      [productId, scope.posIds]
+    );
     if (inUse.rows[0]) {
       const disabled = await query(
         `UPDATE products
          SET is_available = false, updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1
-         RETURNING id, name, is_available`,
-        [productId]
+         WHERE id = $1 AND pos_id = ANY($2::uuid[])
+         RETURNING id, name, is_available, pos_id`,
+        [productId, scope.posIds]
       );
 
       if (!disabled.rows[0]) {
@@ -573,8 +676,8 @@ export async function deleteProduct(req, res) {
     }
 
     const result = await query(
-      'DELETE FROM products WHERE id = $1 RETURNING id, name',
-      [productId]
+      'DELETE FROM products WHERE id = $1 AND pos_id = ANY($2::uuid[]) RETURNING id, name, pos_id',
+      [productId, scope.posIds]
     );
 
     if (!result.rows[0]) {
@@ -589,6 +692,10 @@ export async function deleteProduct(req, res) {
 
 export async function createFloor(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { name, isActive } = req.body;
     if (!name || !String(name).trim()) {
       return res.status(400).json({ error: 'name is required' });
@@ -600,10 +707,10 @@ export async function createFloor(req, res) {
     }
 
     const result = await query(
-      `INSERT INTO floors (name, is_active)
-       VALUES ($1, $2)
-       RETURNING id, name, is_active, created_at`,
-      [String(name).trim(), active]
+      `INSERT INTO floors (name, is_active, pos_id)
+       VALUES ($1, $2, $3)
+       RETURNING id, name, is_active, pos_id, created_at`,
+      [String(name).trim(), active, scope.selectedPosId]
     );
 
     return res.status(201).json({ floor: result.rows[0] });
@@ -614,6 +721,10 @@ export async function createFloor(req, res) {
 
 export async function createTable(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { floorId } = req.params;
     const { tableNumber, seats, status, isActive } = req.body;
 
@@ -639,16 +750,16 @@ export async function createTable(req, res) {
       return res.status(400).json({ error: 'isActive must be true or false' });
     }
 
-    const floor = await query('SELECT id FROM floors WHERE id = $1', [floorId]);
+    const floor = await query('SELECT id FROM floors WHERE id = $1 AND pos_id = $2', [floorId, scope.selectedPosId]);
     if (!floor.rows[0]) {
       return res.status(404).json({ error: 'Floor not found' });
     }
 
     const result = await query(
-      `INSERT INTO tables (floor_id, table_number, seats, status, is_active)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, floor_id, table_number, seats, status, is_active, created_at`,
-      [floorId, tableNumber, seats, normalizedStatus, active]
+      `INSERT INTO tables (floor_id, table_number, seats, status, is_active, pos_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, floor_id, table_number, seats, status, is_active, pos_id, created_at`,
+      [floorId, tableNumber, seats, normalizedStatus, active, scope.selectedPosId]
     );
 
     return res.status(201).json({ table: result.rows[0] });
@@ -662,6 +773,10 @@ export async function createTable(req, res) {
 
 export async function updateTable(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.body.posId || req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { tableId } = req.params;
     const { tableNumber, seats, status, isActive } = req.body;
 
@@ -669,7 +784,7 @@ export async function updateTable(req, res) {
       return res.status(400).json({ error: 'tableId must be a valid UUID' });
     }
 
-    const current = await query('SELECT id, floor_id FROM tables WHERE id = $1', [tableId]);
+    const current = await query('SELECT id, floor_id FROM tables WHERE id = $1 AND pos_id = ANY($2::uuid[])', [tableId, scope.posIds]);
     if (!current.rows[0]) {
       return res.status(404).json({ error: 'Table not found' });
     }
@@ -715,12 +830,13 @@ export async function updateTable(req, res) {
     }
 
     values.push(tableId);
+    values.push(scope.posIds);
 
     const result = await query(
       `UPDATE tables
        SET ${updates.join(', ')}
-       WHERE id = $${values.length}
-       RETURNING id, floor_id, table_number, seats, status, is_active, created_at`,
+       WHERE id = $${values.length - 1} AND pos_id = ANY($${values.length}::uuid[])
+       RETURNING id, floor_id, table_number, seats, status, is_active, pos_id, created_at`,
       values
     );
 
@@ -735,13 +851,20 @@ export async function updateTable(req, res) {
 
 export async function listFloorsTables(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const floors = await query(
-      'SELECT id, name, is_active, created_at FROM floors ORDER BY name ASC'
+      'SELECT id, name, is_active, pos_id, created_at FROM floors WHERE pos_id = ANY($1::uuid[]) ORDER BY name ASC',
+      [scope.posIds]
     );
     const tables = await query(
       `SELECT id, floor_id, table_number, seats, status, is_active, created_at
        FROM tables
-       ORDER BY floor_id, table_number`
+       WHERE pos_id = ANY($1::uuid[])
+       ORDER BY floor_id, table_number`,
+      [scope.posIds]
     );
 
     const byFloor = new Map();
@@ -763,10 +886,16 @@ export async function listFloorsTables(req, res) {
 
 export async function listPaymentMethods(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const result = await query(
       `SELECT method, enabled, upi_id, updated_at
        FROM payment_method_settings
-       ORDER BY method ASC`
+       WHERE pos_id = ANY($1::uuid[])
+       ORDER BY method ASC`,
+      [scope.posIds]
     );
 
     return res.status(200).json({ paymentMethods: result.rows });
@@ -777,6 +906,10 @@ export async function listPaymentMethods(req, res) {
 
 export async function updatePaymentMethod(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.body.posId || req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { method } = req.params;
     const normalizedMethod = normalizePaymentMethod(method);
     const { enabled, upiId } = req.body;
@@ -799,9 +932,9 @@ export async function updatePaymentMethod(req, res) {
        SET enabled = $2,
            upi_id = CASE WHEN $1 = 'upi' THEN $3 ELSE upi_id END,
            updated_at = CURRENT_TIMESTAMP
-       WHERE method = $1
+       WHERE method = $1 AND pos_id = ANY($4::uuid[])
        RETURNING method, enabled, upi_id, updated_at`,
-      [normalizedMethod, parsedEnabled, upiId ? String(upiId).trim() : null]
+      [normalizedMethod, parsedEnabled, upiId ? String(upiId).trim() : null, scope.posIds]
     );
 
     if (!result.rows[0]) {
@@ -816,12 +949,16 @@ export async function updatePaymentMethod(req, res) {
 
 export async function listSessions(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { status, openedBy, fromDate, toDate } = req.query;
-    const values = [];
-    const where = [];
+    const values = [scope.posIds];
+    const where = ['ps.pos_id = ANY($1::uuid[])'];
 
     if (status) {
-      if (!['open', 'closed'].includes(status)) {
+      if (!['open', 'active', 'closed'].includes(status)) {
         return res.status(400).json({ error: 'Invalid status filter' });
       }
       values.push(status);
@@ -879,8 +1016,98 @@ export async function listSessions(req, res) {
   }
 }
 
+export async function openPosSession(req, res) {
+  try {
+    const scope = await resolveAdminPosScope(req, req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
+
+    const existing = await query(
+      `SELECT id, pos_id, status, opened_at
+       FROM pos_sessions
+       WHERE pos_id = $1 AND status = 'active'
+       ORDER BY opened_at DESC
+       LIMIT 1`,
+      [scope.selectedPosId]
+    );
+
+    if (existing.rows[0]) {
+      return res.status(409).json({ error: 'An active session already exists for this POS', session: existing.rows[0] });
+    }
+
+    const created = await query(
+      `INSERT INTO pos_sessions (pos_id, opened_by, status, notes)
+       VALUES ($1, $2, 'active', $3)
+       RETURNING id, pos_id, opened_by, status, notes, opened_at`,
+      [scope.selectedPosId, req.user.id, req.body?.notes || null]
+    );
+
+    return res.status(201).json({ session: created.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to open session' });
+  }
+}
+
+export async function closeActiveSession(req, res) {
+  try {
+    const scope = await resolveAdminPosScope(req, req.body.posId || req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
+
+    const active = await query(
+      `SELECT id
+       FROM pos_sessions
+       WHERE pos_id = $1 AND status = 'active'
+       ORDER BY opened_at DESC LIMIT 1`,
+      [scope.selectedPosId]
+    );
+
+    if (!active.rows[0]) {
+      return res.status(404).json({ error: 'No active session found for this POS' });
+    }
+
+    const sessionId = active.rows[0].id;
+
+    const summary = await query(
+      `SELECT
+         COUNT(*) FILTER (WHERE o.status = 'paid') AS paid_orders,
+         COALESCE(SUM(o.total_price) FILTER (WHERE o.status = 'paid'), 0) AS total_sales
+       FROM orders o
+       WHERE o.session_id = $1 AND o.pos_id = $2`,
+      [sessionId, scope.selectedPosId]
+    );
+
+    const closed = await query(
+      `UPDATE pos_sessions
+       SET status = 'closed',
+           closed_by = $4,
+           closed_at = CURRENT_TIMESTAMP,
+           total_sales = $2,
+           total_orders = $3
+       WHERE id = $1
+       RETURNING id, pos_id, status, opened_at, closed_at, total_sales, total_orders, closed_by`,
+      [
+        sessionId,
+        summary.rows[0].total_sales,
+        Number(summary.rows[0].paid_orders || 0),
+        req.user.id,
+      ]
+    );
+
+    return res.status(200).json({ session: closed.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to close session' });
+  }
+}
+
 export async function getAdminSessionSummary(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { sessionId } = req.params;
 
     if (!isUuid(sessionId)) {
@@ -891,8 +1118,8 @@ export async function getAdminSessionSummary(req, res) {
       `SELECT ps.id, ps.opened_by, u.name AS opened_by_name, ps.opened_at, ps.closed_at, ps.status, ps.total_sales, ps.total_orders
        FROM pos_sessions ps
        INNER JOIN users u ON u.id = ps.opened_by
-       WHERE ps.id = $1`,
-      [sessionId]
+       WHERE ps.id = $1 AND ps.pos_id = ANY($2::uuid[])`,
+      [sessionId, scope.posIds]
     );
 
     if (!sessionRes.rows[0]) {
@@ -930,9 +1157,13 @@ export async function getAdminSessionSummary(req, res) {
 
 export async function getSalesReport(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { fromDate, toDate, sessionId, staffId, productId } = req.query;
-    const values = [];
-    const where = ["o.status = 'paid'"];
+    const values = [scope.posIds];
+    const where = ["o.status = 'paid'", 'o.pos_id = ANY($1::uuid[])'];
 
     if (fromDate) {
       if (!isValidDate(fromDate)) {
@@ -1026,9 +1257,13 @@ export async function getSalesReport(req, res) {
 
 export async function getTopProducts(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const { fromDate, toDate, limit } = req.query;
-    const values = [];
-    const where = ["o.status = 'paid'"];
+    const values = [scope.posIds];
+    const where = ["o.status = 'paid'", 'o.pos_id = ANY($1::uuid[])'];
 
     if (fromDate) {
       if (!isValidDate(fromDate)) {
@@ -1079,26 +1314,35 @@ export async function getTopProducts(req, res) {
 
 export async function getAdminDashboard(req, res) {
   try {
+    const scope = await resolveAdminPosScope(req, req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
     const [sessions, orders, products, tables] = await Promise.all([
       query(`SELECT
                COUNT(*) FILTER (WHERE status = 'open')::int AS open_sessions,
+               COUNT(*) FILTER (WHERE status = 'active')::int AS active_sessions,
                COUNT(*) FILTER (WHERE status = 'closed')::int AS closed_sessions
-             FROM pos_sessions`),
+             FROM pos_sessions
+             WHERE pos_id = ANY($1::uuid[])`, [scope.posIds]),
       query(`SELECT
                COUNT(*)::int AS total_orders,
                COUNT(*) FILTER (WHERE status = 'paid')::int AS paid_orders,
                COUNT(*) FILTER (WHERE status IN ('to_cook', 'preparing'))::int AS kitchen_active,
                COALESCE(SUM(total_price) FILTER (WHERE status = 'paid'), 0) AS revenue
-             FROM orders`),
+             FROM orders
+             WHERE pos_id = ANY($1::uuid[])`, [scope.posIds]),
       query(`SELECT
                COUNT(*)::int AS total_products,
                COUNT(*) FILTER (WHERE is_available = true)::int AS available_products
-             FROM products`),
+             FROM products
+             WHERE pos_id = ANY($1::uuid[])`, [scope.posIds]),
       query(`SELECT
                COUNT(*)::int AS total_tables,
                COUNT(*) FILTER (WHERE status = 'occupied')::int AS occupied_tables,
                COUNT(*) FILTER (WHERE status = 'available')::int AS available_tables
-             FROM tables`),
+             FROM tables
+             WHERE pos_id = ANY($1::uuid[])`, [scope.posIds]),
     ]);
 
     return res.status(200).json({

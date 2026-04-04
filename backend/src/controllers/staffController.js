@@ -38,24 +38,26 @@ async function recalculateOrderTotal(client, orderId) {
 export async function openSession(req, res) {
   try {
     const staffId = req.user.id;
+    const posId = req.user.posId;
+    const { notes } = req.body || {};
 
     const existing = await query(
-      'SELECT id, status, opened_at FROM pos_sessions WHERE opened_by = $1 AND status = $2 ORDER BY opened_at DESC LIMIT 1',
-      [staffId, 'open']
+      `SELECT id, pos_id, status, opened_at, notes
+       FROM pos_sessions
+       WHERE pos_id = $1 AND status = 'active'
+       ORDER BY opened_at DESC LIMIT 1`,
+      [posId]
     );
 
     if (existing.rows[0]) {
-      return res.status(409).json({
-        error: 'An active session already exists for this staff user',
-        session: existing.rows[0],
-      });
+      return res.status(409).json({ error: 'An active session already exists for this POS', session: existing.rows[0] });
     }
 
     const created = await query(
-      `INSERT INTO pos_sessions (opened_by, status)
-       VALUES ($1, 'open')
-       RETURNING id, opened_by, status, opened_at`,
-      [staffId]
+      `INSERT INTO pos_sessions (pos_id, opened_by, status, notes)
+       VALUES ($1, $2, 'active', $3)
+       RETURNING id, pos_id, opened_by, status, notes, opened_at`,
+      [posId, staffId, notes || null]
     );
 
     return res.status(201).json({ session: created.rows[0] });
@@ -66,10 +68,13 @@ export async function openSession(req, res) {
 
 export async function getCurrentSession(req, res) {
   try {
-    const staffId = req.user.id;
+    const posId = req.user.posId;
     const result = await query(
-      'SELECT id, opened_by, opened_at, closed_at, status FROM pos_sessions WHERE opened_by = $1 ORDER BY opened_at DESC LIMIT 1',
-      [staffId]
+      `SELECT id, pos_id, opened_by, closed_by, status, notes, opened_at, closed_at
+       FROM pos_sessions
+       WHERE pos_id = $1
+       ORDER BY opened_at DESC LIMIT 1`,
+      [posId]
     );
 
     if (!result.rows[0]) {
@@ -85,9 +90,12 @@ export async function getCurrentSession(req, res) {
 export async function closeSession(req, res) {
   try {
     const staffId = req.user.id;
+    const posId = req.user.posId;
     const active = await query(
-      'SELECT id FROM pos_sessions WHERE opened_by = $1 AND status = $2 ORDER BY opened_at DESC LIMIT 1',
-      [staffId, 'open']
+      `SELECT id FROM pos_sessions
+       WHERE pos_id = $1 AND status = 'active'
+       ORDER BY opened_at DESC LIMIT 1`,
+      [posId]
     );
 
     if (!active.rows[0]) {
@@ -108,15 +116,17 @@ export async function closeSession(req, res) {
     const closed = await query(
       `UPDATE pos_sessions
        SET status = 'closed',
+           closed_by = $4,
            closed_at = CURRENT_TIMESTAMP,
            total_sales = $2,
            total_orders = $3
        WHERE id = $1
-       RETURNING id, status, opened_at, closed_at, total_sales, total_orders`,
+       RETURNING id, pos_id, status, opened_at, closed_at, total_sales, total_orders, closed_by`,
       [
         sessionId,
         summary.rows[0].total_sales,
         Number(summary.rows[0].paid_orders || 0),
+        staffId,
       ]
     );
 
@@ -128,13 +138,17 @@ export async function closeSession(req, res) {
 
 export async function listFloorsAndTables(req, res) {
   try {
+    const posId = req.user.posId;
     const floorsResult = await query(
-      'SELECT id, name, created_at FROM floors ORDER BY name ASC'
+      'SELECT id, name, created_at FROM floors WHERE pos_id = $1 ORDER BY name ASC',
+      [posId]
     );
     const tablesResult = await query(
       `SELECT id, floor_id, table_number, seats, status, created_at
        FROM tables
+       WHERE pos_id = $1
        ORDER BY floor_id, table_number`
+      [posId]
     );
 
     const byFloor = new Map();
@@ -154,10 +168,12 @@ export async function listFloorsAndTables(req, res) {
   }
 }
 
-async function getActiveSessionForStaff(staffId) {
+async function getActiveSessionForPos(posId) {
   const result = await query(
-    'SELECT id FROM pos_sessions WHERE opened_by = $1 AND status = $2 ORDER BY opened_at DESC LIMIT 1',
-    [staffId, 'open']
+    `SELECT id FROM pos_sessions
+     WHERE pos_id = $1 AND status = 'active'
+     ORDER BY opened_at DESC LIMIT 1`,
+    [posId]
   );
   return result.rows[0]?.id || null;
 }
@@ -166,6 +182,7 @@ export async function createOrder(req, res) {
   const client = await beginTransaction();
   try {
     const staffId = req.user.id;
+    const posId = req.user.posId;
     const { tableId, notes } = req.body;
 
     if (!tableId) {
@@ -178,15 +195,15 @@ export async function createOrder(req, res) {
       return res.status(400).json({ error: 'tableId must be a valid UUID' });
     }
 
-    const sessionId = await getActiveSessionForStaff(staffId);
+    const sessionId = await getActiveSessionForPos(posId);
     if (!sessionId) {
       await rollbackTransaction(client);
       return res.status(400).json({ error: 'Open a POS session first' });
     }
 
     const tableRes = await client.query(
-      'SELECT id, status FROM tables WHERE id = $1 FOR UPDATE',
-      [tableId]
+      'SELECT id, status FROM tables WHERE id = $1 AND pos_id = $2 FOR UPDATE',
+      [tableId, posId]
     );
 
     if (!tableRes.rows[0]) {
@@ -196,9 +213,9 @@ export async function createOrder(req, res) {
 
     const existingOpenOrder = await client.query(
       `SELECT id FROM orders
-       WHERE table_id = $1 AND status != 'paid'
+       WHERE table_id = $1 AND pos_id = $2 AND status != 'paid'
        ORDER BY created_at DESC LIMIT 1`,
-      [tableId]
+      [tableId, posId]
     );
 
     if (existingOpenOrder.rows[0]) {
@@ -207,10 +224,10 @@ export async function createOrder(req, res) {
     }
 
     const orderRes = await client.query(
-      `INSERT INTO orders (session_id, table_id, created_by, status, notes)
-       VALUES ($1, $2, $3, 'draft', $4)
-       RETURNING id, session_id, table_id, created_by, status, total_price, created_at`,
-      [sessionId, tableId, staffId, notes || null]
+      `INSERT INTO orders (session_id, table_id, created_by, pos_id, status, notes)
+       VALUES ($1, $2, $3, $4, 'draft', $5)
+       RETURNING id, session_id, table_id, created_by, pos_id, status, total_price, created_at`,
+      [sessionId, tableId, staffId, posId, notes || null]
     );
 
     await client.query('UPDATE tables SET status = $1 WHERE id = $2', ['occupied', tableId]);
@@ -230,6 +247,7 @@ export async function createOrder(req, res) {
 export async function addOrderItem(req, res) {
   const client = await beginTransaction();
   try {
+    const posId = req.user.posId;
     const { orderId } = req.params;
     const { productId, quantity } = req.body;
 
@@ -239,8 +257,8 @@ export async function addOrderItem(req, res) {
     }
 
     const orderRes = await client.query(
-      'SELECT id, status FROM orders WHERE id = $1 FOR UPDATE',
-      [orderId]
+      'SELECT id, status FROM orders WHERE id = $1 AND pos_id = $2 FOR UPDATE',
+      [orderId, posId]
     );
     if (!orderRes.rows[0]) {
       await rollbackTransaction(client);
@@ -252,8 +270,8 @@ export async function addOrderItem(req, res) {
     }
 
     const productRes = await client.query(
-      'SELECT id, price, is_available FROM products WHERE id = $1',
-      [productId]
+      'SELECT id, price, is_available FROM products WHERE id = $1 AND pos_id = $2',
+      [productId, posId]
     );
     if (!productRes.rows[0]) {
       await rollbackTransaction(client);
@@ -291,8 +309,8 @@ export async function addOrderItem(req, res) {
 
     await recalculateOrderTotal(client, orderId);
 
-    const totalRes = await client.query('SELECT total_price FROM orders WHERE id = $1', [orderId]);
-    const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1', [orderId]);
+    const totalRes = await client.query('SELECT total_price FROM orders WHERE id = $1 AND pos_id = $2', [orderId, posId]);
+    const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1 AND pos_id = $2', [orderId, posId]);
     await commitTransaction(client);
 
     if (orderSessionRes.rows[0]) {
@@ -308,6 +326,7 @@ export async function addOrderItem(req, res) {
 export async function updateOrderItem(req, res) {
   const client = await beginTransaction();
   try {
+    const posId = req.user.posId;
     const { orderId, itemId } = req.params;
     const { quantity } = req.body;
 
@@ -317,8 +336,8 @@ export async function updateOrderItem(req, res) {
     }
 
     const orderRes = await client.query(
-      'SELECT id, status FROM orders WHERE id = $1 FOR UPDATE',
-      [orderId]
+      'SELECT id, status FROM orders WHERE id = $1 AND pos_id = $2 FOR UPDATE',
+      [orderId, posId]
     );
     if (!orderRes.rows[0]) {
       await rollbackTransaction(client);
@@ -343,8 +362,8 @@ export async function updateOrderItem(req, res) {
     }
 
     await recalculateOrderTotal(client, orderId);
-    const totalRes = await client.query('SELECT total_price FROM orders WHERE id = $1', [orderId]);
-    const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1', [orderId]);
+    const totalRes = await client.query('SELECT total_price FROM orders WHERE id = $1 AND pos_id = $2', [orderId, posId]);
+    const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1 AND pos_id = $2', [orderId, posId]);
     await commitTransaction(client);
 
     if (orderSessionRes.rows[0]) {
@@ -360,11 +379,12 @@ export async function updateOrderItem(req, res) {
 export async function removeOrderItem(req, res) {
   const client = await beginTransaction();
   try {
+    const posId = req.user.posId;
     const { orderId, itemId } = req.params;
 
     const orderRes = await client.query(
-      'SELECT id, status FROM orders WHERE id = $1 FOR UPDATE',
-      [orderId]
+      'SELECT id, status FROM orders WHERE id = $1 AND pos_id = $2 FOR UPDATE',
+      [orderId, posId]
     );
     if (!orderRes.rows[0]) {
       await rollbackTransaction(client);
@@ -386,8 +406,8 @@ export async function removeOrderItem(req, res) {
     }
 
     await recalculateOrderTotal(client, orderId);
-    const totalRes = await client.query('SELECT total_price FROM orders WHERE id = $1', [orderId]);
-    const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1', [orderId]);
+    const totalRes = await client.query('SELECT total_price FROM orders WHERE id = $1 AND pos_id = $2', [orderId, posId]);
+    const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1 AND pos_id = $2', [orderId, posId]);
     await commitTransaction(client);
 
     if (orderSessionRes.rows[0]) {
@@ -403,11 +423,12 @@ export async function removeOrderItem(req, res) {
 export async function sendOrderToKitchen(req, res) {
   const client = await beginTransaction();
   try {
+    const posId = req.user.posId;
     const { orderId } = req.params;
 
     const orderRes = await client.query(
-      'SELECT id, status FROM orders WHERE id = $1 FOR UPDATE',
-      [orderId]
+      'SELECT id, status FROM orders WHERE id = $1 AND pos_id = $2 FOR UPDATE',
+      [orderId, posId]
     );
     if (!orderRes.rows[0]) {
       await rollbackTransaction(client);
@@ -441,7 +462,7 @@ export async function sendOrderToKitchen(req, res) {
        WHERE oi.order_id = $1`,
       [orderId]
     );
-    const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1', [orderId]);
+    const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1 AND pos_id = $2', [orderId, posId]);
     await commitTransaction(client);
 
     if (orderSessionRes.rows[0]) {
@@ -456,12 +477,13 @@ export async function sendOrderToKitchen(req, res) {
 
 export async function getOrderStatus(req, res) {
   try {
+    const posId = req.user.posId;
     const { orderId } = req.params;
     const result = await query(
-      `SELECT id, table_id, session_id, status, total_price, created_at, started_at, completed_at, paid_at
+      `SELECT id, table_id, session_id, pos_id, status, total_price, created_at, started_at, completed_at, paid_at
        FROM orders
-       WHERE id = $1`,
-      [orderId]
+       WHERE id = $1 AND pos_id = $2`,
+      [orderId, posId]
     );
 
     if (!result.rows[0]) {
@@ -477,6 +499,7 @@ export async function getOrderStatus(req, res) {
 export async function processPayment(req, res) {
   const client = await beginTransaction();
   try {
+    const posId = req.user.posId;
     const { orderId } = req.params;
     const { method, amount, upiReference } = req.body;
     const normalizedMethod = normalizePaymentMethod(method);
@@ -487,8 +510,8 @@ export async function processPayment(req, res) {
     }
 
     const paymentMethodConfigRes = await client.query(
-      'SELECT method, enabled FROM payment_method_settings WHERE method = $1',
-      [normalizedMethod]
+      'SELECT method, enabled FROM payment_method_settings WHERE pos_id = $1 AND method = $2',
+      [posId, normalizedMethod]
     );
 
     if (!paymentMethodConfigRes.rows[0] || paymentMethodConfigRes.rows[0].enabled !== true) {
@@ -507,8 +530,8 @@ export async function processPayment(req, res) {
     }
 
     const orderRes = await client.query(
-      'SELECT id, status, total_price, table_id FROM orders WHERE id = $1 FOR UPDATE',
-      [orderId]
+      'SELECT id, status, total_price, table_id FROM orders WHERE id = $1 AND pos_id = $2 FOR UPDATE',
+      [orderId, posId]
     );
     const order = orderRes.rows[0];
 
@@ -535,10 +558,10 @@ export async function processPayment(req, res) {
     const changeAmount = Number(amount) - Number(order.total_price);
 
     const paymentRes = await client.query(
-      `INSERT INTO payments (order_id, method, status, amount, upi_reference, change_amount)
-       VALUES ($1, $2, 'completed', $3, $4, $5)
-       RETURNING id, order_id, method, status, amount, upi_reference, change_amount, created_at`,
-      [orderId, normalizedMethod, amount, upiReference || null, changeAmount]
+      `INSERT INTO payments (order_id, pos_id, method, status, amount, upi_reference, change_amount)
+       VALUES ($1, $2, $3, 'completed', $4, $5, $6)
+       RETURNING id, order_id, pos_id, method, status, amount, upi_reference, change_amount, created_at`,
+      [orderId, posId, normalizedMethod, amount, upiReference || null, changeAmount]
     );
 
     const orderPaidRes = await client.query(
@@ -550,7 +573,7 @@ export async function processPayment(req, res) {
     );
 
     await client.query('UPDATE tables SET status = $1 WHERE id = $2', ['available', order.table_id]);
-    const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1', [orderId]);
+    const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1 AND pos_id = $2', [orderId, posId]);
     await commitTransaction(client);
 
     if (orderSessionRes.rows[0]) {
@@ -571,20 +594,16 @@ export async function processPayment(req, res) {
 export async function getSessionSummary(req, res) {
   try {
     const sessionId = req.params.sessionId;
-    const staffId = req.user.id;
+    const posId = req.user.posId;
 
     const sessionRes = await query(
-      'SELECT id, opened_by, opened_at, closed_at, status FROM pos_sessions WHERE id = $1',
-      [sessionId]
+      'SELECT id, opened_by, opened_at, closed_at, status, pos_id FROM pos_sessions WHERE id = $1 AND pos_id = $2',
+      [sessionId, posId]
     );
     const session = sessionRes.rows[0];
 
     if (!session) {
       return res.status(404).json({ error: 'Session not found' });
-    }
-
-    if (session.opened_by !== staffId) {
-      return res.status(403).json({ error: 'Forbidden' });
     }
 
     const summaryRes = await query(
@@ -593,16 +612,16 @@ export async function getSessionSummary(req, res) {
          COUNT(*) FILTER (WHERE status = 'paid') AS paid_orders,
          COALESCE(SUM(total_price) FILTER (WHERE status = 'paid'), 0) AS revenue
        FROM orders
-       WHERE session_id = $1`,
-      [sessionId]
+       WHERE session_id = $1 AND pos_id = $2`,
+      [sessionId, posId]
     );
 
     const paymentBreakdownRes = await query(
       `SELECT method, COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total
        FROM payments
-       WHERE order_id IN (SELECT id FROM orders WHERE session_id = $1)
+       WHERE pos_id = $2 AND order_id IN (SELECT id FROM orders WHERE session_id = $1 AND pos_id = $2)
        GROUP BY method`,
-      [sessionId]
+      [sessionId, posId]
     );
 
     return res.status(200).json({

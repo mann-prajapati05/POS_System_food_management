@@ -47,6 +47,7 @@ async function getOrderProgress(client, orderId) {
 
 export async function getKitchenOrders(req, res) {
   try {
+    const posId = req.user.posId;
     const statuses = normalizeStatuses(req.query.status);
     if (!statuses) {
       return res.status(400).json({ error: 'Invalid status filter' });
@@ -55,6 +56,9 @@ export async function getKitchenOrders(req, res) {
     const assignedToMe = String(req.query.assignedToMe || '').toLowerCase() === 'true';
     const values = [statuses];
     const where = ['o.status = ANY($1::text[])'];
+
+    values.push(posId);
+    where.push(`o.pos_id = $${values.length}`);
 
     if (assignedToMe) {
       values.push(req.user.id);
@@ -113,6 +117,7 @@ export async function getKitchenOrders(req, res) {
 
 export async function getKitchenBoard(req, res) {
   try {
+    const posId = req.user.posId;
     const result = await query(
       `SELECT
          o.id,
@@ -150,8 +155,10 @@ export async function getKitchenBoard(req, res) {
        LEFT JOIN order_items oi ON oi.order_id = o.id
        LEFT JOIN products p ON p.id = oi.product_id
        WHERE o.status IN ('to_cook', 'preparing', 'completed')
+         AND o.pos_id = $1
        GROUP BY o.id, ku.name, t.table_number, f.name
-       ORDER BY o.created_at ASC`
+       ORDER BY o.created_at ASC`,
+      [posId]
     );
 
     const board = {
@@ -168,6 +175,7 @@ export async function getKitchenBoard(req, res) {
 
 export async function getKitchenOrderById(req, res) {
   try {
+    const posId = req.user.posId;
     const { orderId } = req.params;
 
     if (!isUuid(orderId)) {
@@ -210,9 +218,9 @@ export async function getKitchenOrderById(req, res) {
        LEFT JOIN users ku ON ku.id = o.assigned_kitchen_user
        LEFT JOIN order_items oi ON oi.order_id = o.id
        LEFT JOIN products p ON p.id = oi.product_id
-       WHERE o.id = $1
+       WHERE o.id = $1 AND o.pos_id = $2
        GROUP BY o.id, ku.name, t.table_number, f.name`,
-      [orderId]
+      [orderId, posId]
     );
 
     if (!result.rows[0]) {
@@ -228,6 +236,7 @@ export async function getKitchenOrderById(req, res) {
 export async function assignKitchenOrder(req, res) {
   const client = await beginTransaction();
   try {
+    const posId = req.user.posId;
     const { orderId } = req.params;
     const targetKitchenUserId = req.body.kitchenUserId || req.user.id;
 
@@ -242,8 +251,8 @@ export async function assignKitchenOrder(req, res) {
     }
 
     const kitchenUserRes = await client.query(
-      'SELECT id FROM users WHERE id = $1 AND role = $2 AND is_active = true',
-      [targetKitchenUserId, 'kitchen']
+      'SELECT id FROM users WHERE id = $1 AND role = $2 AND is_active = true AND pos_id = $3',
+      [targetKitchenUserId, 'kitchen', posId]
     );
 
     if (!kitchenUserRes.rows[0]) {
@@ -252,8 +261,8 @@ export async function assignKitchenOrder(req, res) {
     }
 
     const orderRes = await client.query(
-      'SELECT id, status, session_id FROM orders WHERE id = $1 FOR UPDATE',
-      [orderId]
+      'SELECT id, status, session_id FROM orders WHERE id = $1 AND pos_id = $2 FOR UPDATE',
+      [orderId, posId]
     );
 
     if (!orderRes.rows[0]) {
@@ -288,6 +297,7 @@ export async function assignKitchenOrder(req, res) {
 export async function markKitchenItemPrepared(req, res) {
   const client = await beginTransaction();
   try {
+    const posId = req.user.posId;
     const { orderId, itemId } = req.params;
 
     if (!isUuid(orderId) || !isUuid(itemId)) {
@@ -296,8 +306,8 @@ export async function markKitchenItemPrepared(req, res) {
     }
 
     const orderRes = await client.query(
-      'SELECT id, status, session_id FROM orders WHERE id = $1 FOR UPDATE',
-      [orderId]
+      'SELECT id, status, session_id FROM orders WHERE id = $1 AND pos_id = $2 FOR UPDATE',
+      [orderId, posId]
     );
 
     if (!orderRes.rows[0]) {
@@ -371,6 +381,7 @@ export async function markKitchenItemPrepared(req, res) {
 export async function updateKitchenOrderStatus(req, res) {
   const client = await beginTransaction();
   try {
+    const posId = req.user.posId;
     const { orderId } = req.params;
     const { status } = req.body;
 
@@ -385,8 +396,8 @@ export async function updateKitchenOrderStatus(req, res) {
     }
 
     const orderRes = await client.query(
-      'SELECT id, status, session_id FROM orders WHERE id = $1 FOR UPDATE',
-      [orderId]
+      'SELECT id, status, session_id FROM orders WHERE id = $1 AND pos_id = $2 FOR UPDATE',
+      [orderId, posId]
     );
 
     const order = orderRes.rows[0];
