@@ -161,6 +161,12 @@ export default function AdminAnalytics() {
                 Real-time Orders
               </Link>
               <Link
+                to="/admin/floors-tables"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                Floors & Tables
+              </Link>
+              <Link
                 to="/admin/pos"
                 className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
               >

@@ -39,3 +39,39 @@ export async function listUsers(params = {}) {
   const { data } = await api.get('/admin/users', { params });
   return data.users || [];
 }
+
+export async function listFloorsTables(posId) {
+  const params = posId ? { posId } : undefined;
+  const { data } = await api.get('/admin/floors-tables', { params });
+  return data.floors || [];
+}
+
+export async function createFloor(payload) {
+  const { data } = await api.post('/admin/floors', payload);
+  return data.floor;
+}
+
+export async function updateFloor(floorId, payload) {
+  const { data } = await api.patch(`/admin/floors/${floorId}`, payload);
+  return data.floor;
+}
+
+export async function deleteFloor(floorId, params = {}) {
+  const { data } = await api.delete(`/admin/floors/${floorId}`, { params });
+  return data;
+}
+
+export async function createTable(floorId, payload) {
+  const { data } = await api.post(`/admin/floors/${floorId}/tables`, payload);
+  return data.table;
+}
+
+export async function updateTable(tableId, payload) {
+  const { data } = await api.patch(`/admin/tables/${tableId}`, payload);
+  return data.table;
+}
+
+export async function deleteTable(tableId, params = {}) {
+  const { data } = await api.delete(`/admin/tables/${tableId}`, { params });
+  return data;
+}

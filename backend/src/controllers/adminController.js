@@ -37,38 +37,6 @@ function parseBoolean(value, defaultValue = null) {
   return null;
 }
 
-<<<<<<< HEAD
-async function getAccessiblePosIds(adminUserId) {
-  const accessRes = await query(
-    `SELECT pos_id
-     FROM user_pos_access
-     WHERE user_id = $1`,
-    [adminUserId]
-  );
-
-  return accessRes.rows.map((row) => row.pos_id);
-}
-
-async function resolveAdminPosScope(req, posIdCandidate) {
-  const allowedPosIds = await getAccessiblePosIds(req.user.id);
-  if (allowedPosIds.length === 0) {
-    return { error: 'No POS access configured for this admin', status: 403 };
-  }
-
-  const requestedPosId = posIdCandidate || req.query?.posId || req.body?.posId || null;
-  if (!requestedPosId) {
-    const selectedPosId = allowedPosIds.includes(req.user.posId)
-      ? req.user.posId
-      : allowedPosIds[0];
-    return { posIds: allowedPosIds, selectedPosId };
-  }
-
-  if (!allowedPosIds.includes(requestedPosId)) {
-    return { error: 'Forbidden for requested POS', status: 403 };
-  }
-
-  return { posIds: [requestedPosId], selectedPosId: requestedPosId };
-=======
 async function usersHasPosIdColumn() {
   if (usersHasPosIdColumnCache !== null) {
     return usersHasPosIdColumnCache;
@@ -187,20 +155,58 @@ async function resolveAdminUserPosId(posIdCandidate) {
   }
 
   return getDefaultPosId();
->>>>>>> mann/frontend
+}
+
+async function resolveAdminPosScope(req, requestedPosIdRaw) {
+  await ensurePosTable();
+
+  const requestedPosId = requestedPosIdRaw ? String(requestedPosIdRaw).trim() : null;
+  if (requestedPosId && !isUuid(requestedPosId)) {
+    return { error: 'posId must be a valid UUID', status: 400 };
+  }
+
+  if (req.user?.role !== 'admin') {
+    if (!req.user?.posId) {
+      return { error: 'POS context missing', status: 403 };
+    }
+
+    if (requestedPosId && requestedPosId !== req.user.posId) {
+      return { error: 'Forbidden for requested POS', status: 403 };
+    }
+
+    return {
+      posIds: [req.user.posId],
+      selectedPosId: requestedPosId || req.user.posId,
+    };
+  }
+
+  // Admin has access to all POS.
+  const allPosRes = await query('SELECT id FROM pos ORDER BY created_at ASC');
+  const accessiblePosIds = allPosRes.rows.map((row) => row.id);
+
+  if (accessiblePosIds.length === 0) {
+    return { error: 'No POS available', status: 404 };
+  }
+
+  if (requestedPosId) {
+    if (!accessiblePosIds.includes(requestedPosId)) {
+      return { error: 'Forbidden for requested POS', status: 403 };
+    }
+    return {
+      posIds: [requestedPosId],
+      selectedPosId: requestedPosId,
+    };
+  }
+
+  return {
+    posIds: accessiblePosIds,
+    selectedPosId: accessiblePosIds[0],
+  };
 }
 
 export async function createUser(req, res) {
   try {
-<<<<<<< HEAD
-    const scope = await resolveAdminPosScope(req, req.body.posId);
-    if (scope.error) {
-      return res.status(scope.status).json({ error: scope.error });
-    }
-    const { name, email, password, role } = req.body;
-=======
     const { name, email, password, role, posId } = req.body;
->>>>>>> mann/frontend
 
     if (!name || !email || !password || !role) {
       return res.status(400).json({ error: 'name, email, password and role are required' });
@@ -239,22 +245,8 @@ export async function createUser(req, res) {
       : [name.trim(), String(email).toLowerCase().trim(), passwordHash, role];
 
     const result = await query(
-<<<<<<< HEAD
-      `INSERT INTO users (name, email, password, role, pos_id, is_active)
-       VALUES ($1, $2, $3, $4, $5, true)
-       RETURNING id, name, email, role, pos_id, is_active, created_at, updated_at`,
-      [name.trim(), String(email).toLowerCase().trim(), passwordHash, role, scope.selectedPosId]
-    );
-
-    await query(
-      `INSERT INTO user_pos_access (user_id, pos_id)
-       VALUES ($1, $2)
-       ON CONFLICT (user_id, pos_id) DO NOTHING`,
-      [result.rows[0].id, scope.selectedPosId]
-=======
       insertQuery,
       insertValues
->>>>>>> mann/frontend
     );
 
     return res.status(201).json({ user: result.rows[0] });
@@ -928,6 +920,104 @@ export async function createTable(req, res) {
   }
 }
 
+export async function updateFloor(req, res) {
+  try {
+    const scope = await resolveAdminPosScope(req, req.body.posId || req.query.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
+
+    const { floorId } = req.params;
+    const { name, isActive } = req.body;
+
+    if (!isUuid(floorId)) {
+      return res.status(400).json({ error: 'floorId must be a valid UUID' });
+    }
+
+    const updates = [];
+    const values = [];
+
+    if (name !== undefined) {
+      if (!String(name).trim()) {
+        return res.status(400).json({ error: 'name cannot be empty' });
+      }
+      values.push(String(name).trim());
+      updates.push(`name = $${values.length}`);
+    }
+
+    if (isActive !== undefined) {
+      const parsed = parseBoolean(isActive);
+      if (parsed === null) {
+        return res.status(400).json({ error: 'isActive must be true or false' });
+      }
+      values.push(parsed);
+      updates.push(`is_active = $${values.length}`);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No valid fields provided for update' });
+    }
+
+    values.push(floorId);
+    values.push(scope.posIds);
+
+    const result = await query(
+      `UPDATE floors
+       SET ${updates.join(', ')}
+       WHERE id = $${values.length - 1} AND pos_id = ANY($${values.length}::uuid[])
+       RETURNING id, name, is_active, pos_id, created_at`,
+      values
+    );
+
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: 'Floor not found' });
+    }
+
+    return res.status(200).json({ floor: result.rows[0] });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Floor name already exists for this POS' });
+    }
+    return res.status(500).json({ error: 'Failed to update floor' });
+  }
+}
+
+export async function deleteFloor(req, res) {
+  try {
+    const scope = await resolveAdminPosScope(req, req.query.posId || req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
+
+    const { floorId } = req.params;
+    if (!isUuid(floorId)) {
+      return res.status(400).json({ error: 'floorId must be a valid UUID' });
+    }
+
+    const hasTables = await query(
+      'SELECT 1 FROM tables WHERE floor_id = $1 AND pos_id = ANY($2::uuid[]) LIMIT 1',
+      [floorId, scope.posIds]
+    );
+
+    if (hasTables.rows[0]) {
+      return res.status(409).json({ error: 'Cannot delete floor with existing tables' });
+    }
+
+    const result = await query(
+      'DELETE FROM floors WHERE id = $1 AND pos_id = ANY($2::uuid[]) RETURNING id, name, pos_id',
+      [floorId, scope.posIds]
+    );
+
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: 'Floor not found' });
+    }
+
+    return res.status(200).json({ message: 'Floor deleted successfully', floor: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to delete floor' });
+  }
+}
+
 export async function updateTable(req, res) {
   try {
     const scope = await resolveAdminPosScope(req, req.body.posId || req.query.posId);
@@ -1003,6 +1093,47 @@ export async function updateTable(req, res) {
       return res.status(409).json({ error: 'Table number already exists on this floor' });
     }
     return res.status(500).json({ error: 'Failed to update table' });
+  }
+}
+
+export async function deleteTable(req, res) {
+  try {
+    const scope = await resolveAdminPosScope(req, req.query.posId || req.body.posId);
+    if (scope.error) {
+      return res.status(scope.status).json({ error: scope.error });
+    }
+
+    const { tableId } = req.params;
+    if (!isUuid(tableId)) {
+      return res.status(400).json({ error: 'tableId must be a valid UUID' });
+    }
+
+    const hasOpenOrders = await query(
+      `SELECT 1
+       FROM orders
+       WHERE table_id = $1
+         AND pos_id = ANY($2::uuid[])
+         AND status != 'paid'
+       LIMIT 1`,
+      [tableId, scope.posIds]
+    );
+
+    if (hasOpenOrders.rows[0]) {
+      return res.status(409).json({ error: 'Cannot delete table with open orders' });
+    }
+
+    const result = await query(
+      'DELETE FROM tables WHERE id = $1 AND pos_id = ANY($2::uuid[]) RETURNING id, table_number, pos_id',
+      [tableId, scope.posIds]
+    );
+
+    if (!result.rows[0]) {
+      return res.status(404).json({ error: 'Table not found' });
+    }
+
+    return res.status(200).json({ message: 'Table deleted successfully', table: result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to delete table' });
   }
 }
 

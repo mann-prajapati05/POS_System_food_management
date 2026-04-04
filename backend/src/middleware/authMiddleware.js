@@ -22,11 +22,7 @@ export function authenticateToken(req, res, next) {
       id: decoded.sub,
       email: decoded.email,
       role: decoded.role,
-<<<<<<< HEAD
-      posId: decoded.posId,
-=======
       posId: decoded.posId || null,
->>>>>>> mann/frontend
     };
 
     return next();

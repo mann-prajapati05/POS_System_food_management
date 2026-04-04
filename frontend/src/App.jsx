@@ -9,6 +9,7 @@ import AdminHome from './pages/AdminHome';
 import AdminAnalytics from './pages/AdminAnalytics';
 import AdminRealtimeOrders from './pages/AdminRealtimeOrders';
 import AdminPos from './pages/AdminPos';
+import AdminFloorsTables from './pages/AdminFloorsTables';
 import useAuthStore from './store/authStore';
 
 function defaultRouteForRole(role) {
@@ -148,6 +149,15 @@ export default function App() {
           element={(
             <ProtectedRoute allowedRoles={['admin']}>
               <AdminPos />
+            </ProtectedRoute>
+          )}
+        />
+
+        <Route
+          path="/admin/floors-tables"
+          element={(
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminFloorsTables />
             </ProtectedRoute>
           )}
         />

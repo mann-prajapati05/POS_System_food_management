@@ -24,8 +24,11 @@ import {
   updateProductAvailability,
   deleteProduct,
   createFloor,
+  updateFloor,
+  deleteFloor,
   createTable,
   updateTable,
+  deleteTable,
   listFloorsTables,
   listPaymentMethods,
   updatePaymentMethod,
@@ -44,13 +47,9 @@ const router = express.Router();
 
 router.use(requireAuth, attachPOSContext, authorizeRole('admin'));
 
-<<<<<<< HEAD
-router.get('/dashboard', validateAdminPosQuery, validateRequest, asyncHandler(getAdminDashboard));
-=======
 router.get('/dashboard', asyncHandler(getAdminDashboard));
 router.get('/pos', asyncHandler(listPos));
 router.post('/pos', asyncHandler(createPos));
->>>>>>> mann/frontend
 
 router.post('/users', validateAdminPosBody, validateRequest, asyncHandler(createUser));
 router.get('/users', validateAdminPosQuery, validateRequest, asyncHandler(listUsers));
@@ -69,9 +68,12 @@ router.patch('/products/:productId/availability', validateUuidParam('productId')
 router.delete('/products/:productId', validateUuidParam('productId'), validateAdminPosQuery, validateRequest, asyncHandler(deleteProduct));
 
 router.post('/floors', validateAdminPosBody, validateRequest, asyncHandler(createFloor));
+router.patch('/floors/:floorId', validateUuidParam('floorId'), validateAdminPosBody, validateRequest, asyncHandler(updateFloor));
+router.delete('/floors/:floorId', validateUuidParam('floorId'), validateAdminPosQuery, validateRequest, asyncHandler(deleteFloor));
 router.get('/floors-tables', validateAdminPosQuery, validateRequest, asyncHandler(listFloorsTables));
 router.post('/floors/:floorId/tables', validateUuidParam('floorId'), validateAdminPosBody, validateRequest, asyncHandler(createTable));
 router.patch('/tables/:tableId', validateUuidParam('tableId'), validateAdminPosBody, validateRequest, asyncHandler(updateTable));
+router.delete('/tables/:tableId', validateUuidParam('tableId'), validateAdminPosQuery, validateRequest, asyncHandler(deleteTable));
 
 router.get('/payment-methods', validateAdminPosQuery, validateRequest, asyncHandler(listPaymentMethods));
 router.patch('/payment-methods/:method', validatePaymentMethodParam, validateAdminPosBody, validateRequest, asyncHandler(updatePaymentMethod));

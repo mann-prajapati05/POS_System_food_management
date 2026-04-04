@@ -116,6 +116,7 @@ export default function AdminPos() {
               <Link to="/dashboard" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Console</Link>
               <Link to="/admin/analytics" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Analytics</Link>
               <Link to="/admin/realtime-orders" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Real-time Orders</Link>
+              <Link to="/admin/floors-tables" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Floors & Tables</Link>
               <button
                 type="button"
                 onClick={() => {

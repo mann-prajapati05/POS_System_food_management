@@ -18,6 +18,8 @@ import {
   attachPOSContext,
   authorizeRole,
   enforceActiveSession,
+  authenticateToken,
+  authorizeRoles,
 } from '../middleware/authMiddleware.js';
 import {
   validateRequest,
@@ -31,11 +33,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
-<<<<<<< HEAD
-router.use(requireAuth, attachPOSContext, authorizeRole('staff'));
-=======
 router.use(authenticateToken, authorizeRoles('staff', 'admin'));
->>>>>>> mann/frontend
 
 router.post('/sessions/open', validateOpenSessionBody, validateRequest, asyncHandler(openSession));
 router.get('/sessions/current', asyncHandler(getCurrentSession));

@@ -52,8 +52,6 @@ async function readSchemaSql() {
   return readFile(schemaPath, 'utf8');
 }
 
-<<<<<<< HEAD
-=======
 async function ensureAdminCompatibilitySchema() {
   await pool.query('ALTER TABLE floors ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;');
   await pool.query('ALTER TABLE tables ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;');
@@ -86,7 +84,6 @@ async function ensureKitchenCompatibilitySchema() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_order_items_order_prepared ON order_items(order_id, is_prepared);');
 }
 
->>>>>>> mann/frontend
 export async function ensureDatabaseAndSchema() {
   const maintenanceDb = process.env.DB_MAINTENANCE_DB || 'postgres';
   const adminPool = new Pool({

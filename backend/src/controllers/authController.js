@@ -29,11 +29,7 @@ function createToken(user) {
       sub: user.id,
       email: user.email,
       role: user.role,
-<<<<<<< HEAD
-      posId: user.pos_id,
-=======
       posId: user.pos_id || null,
->>>>>>> mann/frontend
     },
     getJwtSecret(),
     { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
@@ -254,15 +250,8 @@ export async function signup(req, res) {
       : [name.trim(), String(email).toLowerCase().trim(), passwordHash, role];
 
     const result = await query(
-<<<<<<< HEAD
-      `INSERT INTO users (name, email, password, role, pos_id)
-       VALUES ($1, $2, $3, $4, (SELECT id FROM pos ORDER BY created_at ASC LIMIT 1))
-       RETURNING id, name, email, role, pos_id, created_at`,
-      [name.trim(), String(email).toLowerCase().trim(), passwordHash, role]
-=======
       insertQuery,
       insertValues
->>>>>>> mann/frontend
     );
 
     await query(
@@ -317,13 +306,7 @@ export async function login(req, res) {
          WHERE email = $1`;
 
     const result = await query(
-<<<<<<< HEAD
-      `SELECT id, name, email, password, role, pos_id, is_active
-       FROM users
-       WHERE email = $1`,
-=======
       selectQuery,
->>>>>>> mann/frontend
       [String(email).toLowerCase().trim()]
     );
 
@@ -376,11 +359,7 @@ export async function login(req, res) {
         name: user.name,
         email: user.email,
         role: user.role,
-<<<<<<< HEAD
-        posId: user.pos_id,
-=======
         posId: user.pos_id || null,
->>>>>>> mann/frontend
       },
     });
   } catch (err) {
