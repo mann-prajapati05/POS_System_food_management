@@ -15,7 +15,6 @@
   "license": "ISC",
   "description": "Production-grade Restaurant POS System backend with complete workflow support",
   "dependencies": {
-<<<<<<< HEAD
     "axios": "^1.14.0",
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
@@ -32,13 +31,5 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
-=======
-    "cookie-parser": "^1.4.7",
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.0",
-    "express": "^5.2.1",
-    "nodemon": "^3.1.14",
-    "pg": "^8.20.0"
->>>>>>> 184a008e6f58f72e3188262721b483451010188b
   }
 }
