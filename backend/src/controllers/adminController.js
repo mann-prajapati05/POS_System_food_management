@@ -4,6 +4,12 @@ import { query } from '../config/db.js';
 const USER_ROLES = new Set(['staff', 'kitchen', 'admin']);
 const TABLE_STATUSES = new Set(['available', 'occupied']);
 const PAYMENT_METHODS = new Set(['cash', 'card', 'digital', 'upi']);
+let usersHasPosIdColumnCache = null;
+
+function generatePosUniqueId() {
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `POS-${random}`;
+}
 
 function normalizePaymentMethod(method) {
   return method === 'digital' ? 'card' : method;
@@ -31,6 +37,7 @@ function parseBoolean(value, defaultValue = null) {
   return null;
 }
 
+<<<<<<< HEAD
 async function getAccessiblePosIds(adminUserId) {
   const accessRes = await query(
     `SELECT pos_id
@@ -61,15 +68,139 @@ async function resolveAdminPosScope(req, posIdCandidate) {
   }
 
   return { posIds: [requestedPosId], selectedPosId: requestedPosId };
+=======
+async function usersHasPosIdColumn() {
+  if (usersHasPosIdColumnCache !== null) {
+    return usersHasPosIdColumnCache;
+  }
+
+  const result = await query(
+    `SELECT 1
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'users'
+       AND column_name = 'pos_id'
+     LIMIT 1`
+  );
+
+  usersHasPosIdColumnCache = Boolean(result.rows[0]);
+  return usersHasPosIdColumnCache;
+}
+
+async function ensurePosTable() {
+  await query(
+    `CREATE TABLE IF NOT EXISTS pos (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      name VARCHAR(255) NOT NULL,
+      code VARCHAR(50) UNIQUE,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`
+  );
+}
+
+export async function listPos(req, res) {
+  try {
+    await ensurePosTable();
+    const result = await query(
+      `SELECT id, name, code AS unique_id, is_active, created_at
+       FROM pos
+       ORDER BY created_at DESC`
+    );
+
+    return res.status(200).json({ pos: result.rows });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch POS list' });
+  }
+}
+
+export async function createPos(req, res) {
+  try {
+    await ensurePosTable();
+    const { name } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'POS name is required' });
+    }
+
+    const normalizedName = String(name).trim();
+    const existingByName = await query(
+      'SELECT id FROM pos WHERE LOWER(name) = LOWER($1) LIMIT 1',
+      [normalizedName]
+    );
+
+    if (existingByName.rows[0]) {
+      return res.status(409).json({ error: 'POS name already exists' });
+    }
+
+    let uniqueId = null;
+    for (let i = 0; i < 8; i += 1) {
+      const candidate = generatePosUniqueId();
+      const exists = await query('SELECT 1 FROM pos WHERE code = $1 LIMIT 1', [candidate]);
+      if (!exists.rows[0]) {
+        uniqueId = candidate;
+        break;
+      }
+    }
+
+    if (!uniqueId) {
+      return res.status(500).json({ error: 'Failed to generate POS unique ID' });
+    }
+
+    const created = await query(
+      `INSERT INTO pos (name, code, is_active)
+       VALUES ($1, $2, true)
+       RETURNING id, name, code AS unique_id, is_active, created_at`,
+      [normalizedName, uniqueId]
+    );
+
+    return res.status(201).json({ pos: created.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to create POS' });
+  }
+}
+
+async function getDefaultPosId() {
+  await ensurePosTable();
+  await query(
+    `INSERT INTO pos (name, code)
+     SELECT 'Main POS', 'MAIN'
+     WHERE NOT EXISTS (SELECT 1 FROM pos WHERE code = 'MAIN')`
+  );
+  const result = await query('SELECT id FROM pos ORDER BY created_at ASC LIMIT 1');
+  return result.rows[0]?.id || null;
+}
+
+async function resolveAdminUserPosId(posIdCandidate) {
+  if (!(await usersHasPosIdColumn())) {
+    return null;
+  }
+
+  await ensurePosTable();
+
+  if (posIdCandidate) {
+    const found = await query('SELECT id FROM pos WHERE id = $1 LIMIT 1', [posIdCandidate]);
+    if (!found.rows[0]) {
+      return null;
+    }
+    return found.rows[0].id;
+  }
+
+  return getDefaultPosId();
+>>>>>>> mann/frontend
 }
 
 export async function createUser(req, res) {
   try {
+<<<<<<< HEAD
     const scope = await resolveAdminPosScope(req, req.body.posId);
     if (scope.error) {
       return res.status(scope.status).json({ error: scope.error });
     }
     const { name, email, password, role } = req.body;
+=======
+    const { name, email, password, role, posId } = req.body;
+>>>>>>> mann/frontend
 
     if (!name || !email || !password || !role) {
       return res.status(400).json({ error: 'name, email, password and role are required' });
@@ -88,8 +219,27 @@ export async function createUser(req, res) {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
+    const hasPosColumn = await usersHasPosIdColumn();
+    const resolvedPosId = await resolveAdminUserPosId(posId);
+
+    if (hasPosColumn && !resolvedPosId) {
+      return res.status(400).json({ error: 'Invalid or missing posId' });
+    }
+
+    const insertQuery = hasPosColumn
+      ? `INSERT INTO users (name, email, password, role, pos_id, is_active)
+         VALUES ($1, $2, $3, $4, $5, true)
+         RETURNING id, name, email, role, pos_id, is_active, created_at, updated_at`
+      : `INSERT INTO users (name, email, password, role, is_active)
+         VALUES ($1, $2, $3, $4, true)
+         RETURNING id, name, email, role, is_active, created_at, updated_at`;
+
+    const insertValues = hasPosColumn
+      ? [name.trim(), String(email).toLowerCase().trim(), passwordHash, role, resolvedPosId]
+      : [name.trim(), String(email).toLowerCase().trim(), passwordHash, role];
 
     const result = await query(
+<<<<<<< HEAD
       `INSERT INTO users (name, email, password, role, pos_id, is_active)
        VALUES ($1, $2, $3, $4, $5, true)
        RETURNING id, name, email, role, pos_id, is_active, created_at, updated_at`,
@@ -101,6 +251,10 @@ export async function createUser(req, res) {
        VALUES ($1, $2)
        ON CONFLICT (user_id, pos_id) DO NOTHING`,
       [result.rows[0].id, scope.selectedPosId]
+=======
+      insertQuery,
+      insertValues
+>>>>>>> mann/frontend
     );
 
     return res.status(201).json({ user: result.rows[0] });

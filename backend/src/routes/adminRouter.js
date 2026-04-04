@@ -36,13 +36,21 @@ import {
   getSalesReport,
   getTopProducts,
   getAdminDashboard,
+  listPos,
+  createPos,
 } from '../controllers/adminController.js';
 
 const router = express.Router();
 
 router.use(requireAuth, attachPOSContext, authorizeRole('admin'));
 
+<<<<<<< HEAD
 router.get('/dashboard', validateAdminPosQuery, validateRequest, asyncHandler(getAdminDashboard));
+=======
+router.get('/dashboard', asyncHandler(getAdminDashboard));
+router.get('/pos', asyncHandler(listPos));
+router.post('/pos', asyncHandler(createPos));
+>>>>>>> mann/frontend
 
 router.post('/users', validateAdminPosBody, validateRequest, asyncHandler(createUser));
 router.get('/users', validateAdminPosQuery, validateRequest, asyncHandler(listUsers));

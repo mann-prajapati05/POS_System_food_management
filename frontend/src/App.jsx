@@ -1,121 +1,180 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import PosHome from './pages/PosHome';
+import AdminLogin from './pages/AdminLogin';
+import AdminSignup from './pages/AdminSignup';
+import AdminHome from './pages/AdminHome';
+import AdminAnalytics from './pages/AdminAnalytics';
+import AdminRealtimeOrders from './pages/AdminRealtimeOrders';
+import AdminPos from './pages/AdminPos';
+import useAuthStore from './store/authStore';
 
-function App() {
-  const [count, setCount] = useState(0)
-
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function defaultRouteForRole(role) {
+  if (role === 'admin') return '/dashboard';
+  if (role === 'kitchen') return '/kitchen';
+  return '/pos';
 }
 
-export default App
+function ProtectedRoute({ children, allowedRoles }) {
+  const { isAuthenticated, user } = useAuthStore();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRoles?.length && !allowedRoles.includes(user?.role)) {
+    return <Navigate to={defaultRouteForRole(user?.role)} replace />;
+  }
+
+  return children;
+}
+
+function PublicRoute({ children }) {
+  const { isAuthenticated, user } = useAuthStore();
+
+  if (isAuthenticated) {
+    return <Navigate to={defaultRouteForRole(user?.role)} replace />;
+  }
+
+  return children;
+}
+
+function KitchenPage() {
+  const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+      <section className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-bold text-slate-900">Kitchen Dashboard</h1>
+        <p className="mt-2 text-slate-600">
+          Signed in as {user?.name || 'Kitchen User'}. Kitchen board and live tickets can be added here.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            clearAuth();
+            navigate('/login', { replace: true });
+          }}
+          className="mt-6 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
+        >
+          Logout
+        </button>
+      </section>
+    </main>
+  );
+}
+
+export default function App() {
+  return (
+    <>
+      <Routes>
+        <Route
+          path="/login"
+          element={(
+            <PublicRoute>
+              <Login />
+            </PublicRoute>
+          )}
+        />
+        <Route
+          path="/signup"
+          element={(
+            <PublicRoute>
+              <Signup />
+            </PublicRoute>
+          )}
+        />
+
+        <Route
+          path="/admin/login"
+          element={(
+            <PublicRoute>
+              <AdminLogin />
+            </PublicRoute>
+          )}
+        />
+
+        <Route
+          path="/admin/signup"
+          element={(
+            <PublicRoute>
+              <AdminSignup />
+            </PublicRoute>
+          )}
+        />
+
+        <Route
+          path="/pos"
+          element={(
+            <ProtectedRoute allowedRoles={['staff', 'admin']}>
+              <PosHome />
+            </ProtectedRoute>
+          )}
+        />
+
+        <Route
+          path="/dashboard"
+          element={(
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminHome />
+            </ProtectedRoute>
+          )}
+        />
+
+        <Route
+          path="/admin/analytics"
+          element={(
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminAnalytics />
+            </ProtectedRoute>
+          )}
+        />
+
+        <Route
+          path="/admin/realtime-orders"
+          element={(
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminRealtimeOrders />
+            </ProtectedRoute>
+          )}
+        />
+
+        <Route
+          path="/admin/pos"
+          element={(
+            <ProtectedRoute allowedRoles={['admin']}>
+              <AdminPos />
+            </ProtectedRoute>
+          )}
+        />
+
+        <Route
+          path="/kitchen"
+          element={(
+            <ProtectedRoute allowedRoles={['kitchen']}>
+              <KitchenPage />
+            </ProtectedRoute>
+          )}
+        />
+
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            borderRadius: '14px',
+            border: '1px solid #e2e8f0',
+            background: '#ffffff',
+            color: '#0f172a',
+          },
+        }}
+      />
+    </>
+  );
+}

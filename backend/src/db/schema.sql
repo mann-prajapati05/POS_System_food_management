@@ -183,11 +183,22 @@ CREATE TABLE IF NOT EXISTS payment_method_settings (
   PRIMARY KEY (pos_id, method)
 );
 
+<<<<<<< HEAD
 INSERT INTO payment_method_settings (pos_id, method, enabled)
 SELECT p.id, m.method, TRUE
 FROM pos p
 CROSS JOIN (VALUES ('cash'), ('card'), ('upi')) AS m(method)
 ON CONFLICT (pos_id, method) DO NOTHING;
+=======
+INSERT INTO payment_method_settings (method, enabled)
+SELECT seed.method, TRUE
+FROM (VALUES ('cash'), ('card'), ('upi')) AS seed(method)
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM payment_method_settings pms
+  WHERE pms.method = seed.method
+);
+>>>>>>> mann/frontend
 
 CREATE TABLE IF NOT EXISTS self_order_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
