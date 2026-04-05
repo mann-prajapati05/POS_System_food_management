@@ -10,6 +10,7 @@ import authRouter from './routes/authRouter.js';
 import staffRouter from './routes/staffRouter.js';
 import adminRouter from './routes/adminRouter.js';
 import kitchenRouter from './routes/kitchenRouter.js';
+import paymentRouter from './routes/paymentRouter.js';
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.use('/auth', authRouter);
 app.use('/staff', staffRouter);
 app.use('/admin', adminRouter);
 app.use('/kitchen', kitchenRouter);
+app.use('/api/payments', paymentRouter);
 
 app.get('/health', async (req, res) => {
   try {

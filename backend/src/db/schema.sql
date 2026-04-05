@@ -159,8 +159,12 @@ CREATE TABLE IF NOT EXISTS payments (
   pos_id UUID NOT NULL REFERENCES pos(id) ON DELETE CASCADE,
   order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   method VARCHAR(50) NOT NULL CHECK (method IN ('cash', 'card', 'upi')) DEFAULT 'cash',
+  payment_type VARCHAR(50) CHECK (payment_type IN ('cash', 'card', 'upi')),
   status VARCHAR(50) NOT NULL CHECK (status IN ('pending', 'completed')) DEFAULT 'pending',
   amount NUMERIC(12, 2) NOT NULL,
+  transaction_id VARCHAR(255),
+  razorpay_payment_id VARCHAR(255),
+  razorpay_order_id VARCHAR(255),
   upi_reference VARCHAR(255),
   change_amount NUMERIC(12, 2) DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -170,6 +174,8 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE INDEX idx_payments_pos_id ON payments(pos_id);
 CREATE INDEX idx_payments_order_id ON payments(order_id);
 CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_payments_razorpay_order_id ON payments(razorpay_order_id);
+CREATE INDEX idx_payments_razorpay_payment_id ON payments(razorpay_payment_id);
 CREATE UNIQUE INDEX ux_payments_one_completed_per_order
   ON payments(order_id)
   WHERE status = 'completed';

@@ -650,10 +650,25 @@ export async function processPayment(req, res) {
       return res.status(400).json({ error: 'Invalid payment method' });
     }
 
-    const paymentMethodConfigRes = await client.query(
+    let paymentMethodConfigRes = await client.query(
       'SELECT method, enabled FROM payment_method_settings WHERE pos_id = $1 AND method = $2',
       [posId, normalizedMethod]
     );
+
+    // Older data may miss per-POS payment settings rows; default to enabled and create the row.
+    if (!paymentMethodConfigRes.rows[0]) {
+      await client.query(
+        `INSERT INTO payment_method_settings (pos_id, method, enabled)
+         VALUES ($1, $2, true)
+         ON CONFLICT (pos_id, method) DO NOTHING`,
+        [posId, normalizedMethod]
+      );
+
+      paymentMethodConfigRes = await client.query(
+        'SELECT method, enabled FROM payment_method_settings WHERE pos_id = $1 AND method = $2',
+        [posId, normalizedMethod]
+      );
+    }
 
     if (!paymentMethodConfigRes.rows[0] || paymentMethodConfigRes.rows[0].enabled !== true) {
       await rollbackTransaction(client);

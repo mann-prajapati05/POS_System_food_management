@@ -84,6 +84,15 @@ async function ensureKitchenCompatibilitySchema() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_order_items_order_prepared ON order_items(order_id, is_prepared);');
 }
 
+async function ensureRazorpayCompatibilitySchema() {
+  await pool.query("ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_type VARCHAR(50) CHECK (payment_type IN ('cash', 'card', 'upi')); ");
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS transaction_id VARCHAR(255);');
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS razorpay_payment_id VARCHAR(255);');
+  await pool.query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS razorpay_order_id VARCHAR(255);');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_payments_razorpay_order_id ON payments(razorpay_order_id);');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_payments_razorpay_payment_id ON payments(razorpay_payment_id);');
+}
+
 export async function ensureDatabaseAndSchema() {
   const maintenanceDb = process.env.DB_MAINTENANCE_DB || 'postgres';
   const adminPool = new Pool({
@@ -122,6 +131,8 @@ export async function ensureDatabaseAndSchema() {
     await pool.query(schemaSql);
     console.log('Schema initialized');
   }
+
+  await ensureRazorpayCompatibilitySchema();
 }
 
 export async function testConnection() {
