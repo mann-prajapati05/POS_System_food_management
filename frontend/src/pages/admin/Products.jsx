@@ -90,6 +90,7 @@ export default function Products() {
         price: payload.price,
         description: payload.description,
         isAvailable: payload.isAvailable,
+        image: payload.image,
       };
 
       if (formMode === 'create') {

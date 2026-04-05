@@ -5,7 +5,8 @@ const INITIAL_FORM = {
   categoryId: '',
   price: '',
   description: '',
-  image: '',
+  image: null,
+  currentImage: '',
   isAvailable: true,
   variants: [],
 };
@@ -73,7 +74,8 @@ export default function ProductForm({
       categoryId: initialValues?.category_id || '',
       price: initialValues?.price ?? '',
       description: initialValues?.description || '',
-      image: '',
+      image: null,
+      currentImage: initialValues?.image_path || initialValues?.image_url || '',
       isAvailable: initialValues?.is_available ?? true,
       variants: initialValues?.variants || [],
     });
@@ -96,7 +98,7 @@ export default function ProductForm({
               price: Number(form.price),
               description: form.description.trim() || undefined,
               isAvailable: Boolean(form.isAvailable),
-              image: form.image.trim() || undefined,
+              image: form.image || undefined,
               variants: form.variants,
             });
           }}
@@ -127,8 +129,17 @@ export default function ProductForm({
           </label>
 
           <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary sm:col-span-2">
-            Image URL (optional)
-            <input value={form.image} onChange={(e) => setForm((prev) => ({ ...prev, image: e.target.value }))} className={inputClass} />
+            Product Image (optional)
+            <input
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp"
+              onChange={(e) => setForm((prev) => ({ ...prev, image: e.target.files?.[0] || null }))}
+              className="mt-1.5 block w-full text-sm text-linen-text-primary file:mr-3 file:h-9 file:rounded-linen file:border file:border-linen-border file:bg-white file:px-3 file:text-[13px] file:font-medium file:text-linen-text-primary"
+            />
+            <p className="mt-1 text-xs text-linen-text-muted">Accepted: jpg, jpeg, png, webp (max 2MB)</p>
+            {form.currentImage && !form.image && (
+              <p className="mt-1 text-xs text-linen-text-muted">Current image will be kept if you do not upload a new one.</p>
+            )}
           </label>
 
           <div className="sm:col-span-2">
