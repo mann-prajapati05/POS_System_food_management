@@ -60,6 +60,15 @@ export default function PosTerminal() {
     [floors, selectedFloorId],
   );
 
+  const activeOrders = useMemo(
+    () => (orders || []).filter((order) => {
+      const status = String(order?.status || '').toLowerCase();
+      const paymentStatus = String(order?.payment_status || '').toLowerCase();
+      return status !== 'paid' && paymentStatus !== 'paid';
+    }),
+    [orders],
+  );
+
   const selectedTableId = selectedTable?.id || null;
 
   const loadFloors = async () => {
@@ -316,6 +325,7 @@ export default function PosTerminal() {
       }
 
       setActiveOrder((prev) => ({ ...prev, ...(result.order || {}) }));
+      setOrders((prev) => (prev || []).filter((order) => order.id !== activeOrder.id));
       toast.success('Payment completed');
       await Promise.all([loadOrders(session?.id), loadFloors()]);
       setScreen('floor');
@@ -428,15 +438,15 @@ export default function PosTerminal() {
           <section className="rounded-linen-lg border border-linen-border bg-white p-4">
             <h2 className="text-base font-semibold text-linen-text-primary">Orders</h2>
             <div className="mt-4 space-y-2">
-              {orders.length === 0 ? (
+              {activeOrders.length === 0 ? (
                 <div className="flex flex-col items-center py-10 text-center">
                   <svg className="h-12 w-12 text-linen-border" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
-                  <p className="mt-3 text-sm text-linen-text-secondary">No orders for current session</p>
+                  <p className="mt-3 text-sm text-linen-text-secondary">No active orders for current session</p>
                 </div>
               ) : (
-                orders.map((order) => (
+                activeOrders.map((order) => (
                   <button
                     key={order.id}
                     type="button"
