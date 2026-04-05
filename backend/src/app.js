@@ -18,7 +18,7 @@ const app = express();
 
 // CORS configuration for both HTTP and WebSocket
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL || 'http://localhost:5174',
   credentials: true,
 };
 
@@ -26,9 +26,9 @@ app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 
-app.use('/',(req,res,next)=>{
-    console.log(req.method,req.url);
-    next();
+app.use('/', (req, res, next) => {
+  console.log(req.method, req.url);
+  next();
 });
 
 app.use('/auth', authRouter);
@@ -102,7 +102,7 @@ io.on('connection', (socket) => {
   // Handle user authentication and role setup
   socket.on('user_authenticated', (data) => {
     const { userId, role, sessionId } = data;
-    
+
     // Tag socket with user info
     socket.userId = userId;
     socket.userRole = role;

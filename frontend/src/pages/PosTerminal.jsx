@@ -132,7 +132,6 @@ export default function PosTerminal() {
       if (table.active_order_id) {
         await reloadOrder(table.active_order_id);
       } else {
-        // Do not create order on table click; create it only when first item is added.
         setActiveOrder({
           id: null,
           table_id: table.id,
@@ -248,7 +247,6 @@ export default function PosTerminal() {
       let result;
 
       if (payload.method === 'cash') {
-        // Force exact total for cash to avoid manual amount mismatch failures.
         result = await processOrderPayment(activeOrder.id, {
           method: 'cash',
           amount: Number(activeOrder.total_price || 0),
@@ -350,32 +348,43 @@ export default function PosTerminal() {
     navigate('/login', { replace: true });
   };
 
+  const tabBase = "h-8 rounded-linen-pill border px-4 text-[13px] font-medium transition-all duration-150";
+  const tabActive = "border-linen-primary bg-linen-primary text-white";
+  const tabInactive = "border-linen-border bg-white text-linen-text-secondary hover:border-linen-border-strong hover:bg-linen-surface-2";
+
   if (loading) {
     return (
-      <main className="grid min-h-screen place-items-center bg-slate-50">
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm text-slate-600 shadow-sm">Loading POS terminal...</div>
+      <main className="grid min-h-screen place-items-center bg-linen-bg">
+        <div className="rounded-linen-lg border border-linen-border bg-white px-6 py-4 text-sm text-linen-text-secondary">
+          Loading POS terminal...
+        </div>
       </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Staff POS</p>
-            <h1 className="text-xl font-bold text-slate-900">Terminal</h1>
+    <div className="min-h-screen bg-linen-bg animate-fade-in">
+      <header className="sticky top-0 z-20 h-14 border-b border-linen-border bg-white">
+        <div className="mx-auto flex h-full w-full max-w-7xl items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-linen-sm bg-linen-primary font-mono text-[11px] font-semibold text-white">
+              POS
+            </div>
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-muted">Staff POS</p>
+              <h1 className="text-[15px] font-semibold text-linen-text-primary">Terminal</h1>
+            </div>
           </div>
 
-          <nav className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => { setTab('table'); setScreen('floor'); }} className={`rounded-xl border px-4 py-2 text-sm font-semibold ${tab === 'table' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-700 hover:bg-slate-100'}`}>Table</button>
-            <button type="button" onClick={() => { setTab('register'); if (activeOrder) setScreen('order'); }} disabled={!activeOrder} className={`rounded-xl border px-4 py-2 text-sm font-semibold ${tab === 'register' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-700 hover:bg-slate-100'} disabled:opacity-50`}>Register</button>
-            <button type="button" onClick={() => { setTab('orders'); setScreen('floor'); loadOrders(session?.id); }} className={`rounded-xl border px-4 py-2 text-sm font-semibold ${tab === 'orders' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-slate-200 text-slate-700 hover:bg-slate-100'}`}>Orders</button>
+          <nav className="flex flex-wrap gap-1.5">
+            <button type="button" onClick={() => { setTab('table'); setScreen('floor'); }} className={`${tabBase} ${tab === 'table' ? tabActive : tabInactive}`}>Table</button>
+            <button type="button" onClick={() => { setTab('register'); if (activeOrder) setScreen('order'); }} disabled={!activeOrder} className={`${tabBase} ${tab === 'register' ? tabActive : tabInactive} disabled:opacity-50`}>Register</button>
+            <button type="button" onClick={() => { setTab('orders'); setScreen('floor'); loadOrders(session?.id); }} className={`${tabBase} ${tab === 'orders' ? tabActive : tabInactive}`}>Orders</button>
           </nav>
 
           <div className="flex gap-2">
-            <button type="button" onClick={handleCloseSession} disabled={busy} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60">Close Session</button>
-            <button type="button" onClick={onLogout} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Logout</button>
+            <button type="button" onClick={handleCloseSession} disabled={busy} className="h-9 rounded-linen border border-linen-border px-3 text-[13px] font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2 disabled:opacity-60">Close Session</button>
+            <button type="button" onClick={onLogout} className="h-9 rounded-linen border border-linen-border px-3 text-[13px] font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2">Logout</button>
           </div>
         </div>
       </header>
@@ -416,11 +425,16 @@ export default function PosTerminal() {
         )}
 
         {tab === 'orders' && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-4">
-            <h2 className="text-xl font-bold text-slate-900">Orders</h2>
-            <div className="mt-4 space-y-3">
+          <section className="rounded-linen-lg border border-linen-border bg-white p-4">
+            <h2 className="text-base font-semibold text-linen-text-primary">Orders</h2>
+            <div className="mt-4 space-y-2">
               {orders.length === 0 ? (
-                <p className="text-sm text-slate-500">No orders for current session.</p>
+                <div className="flex flex-col items-center py-10 text-center">
+                  <svg className="h-12 w-12 text-linen-border" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                  </svg>
+                  <p className="mt-3 text-sm text-linen-text-secondary">No orders for current session</p>
+                </div>
               ) : (
                 orders.map((order) => (
                   <button
@@ -432,14 +446,18 @@ export default function PosTerminal() {
                       setTab('register');
                       setScreen('order');
                     }}
-                    className="w-full rounded-xl border border-slate-200 p-3 text-left hover:bg-slate-50"
+                    className="w-full rounded-linen-lg border border-linen-border p-3 text-left transition-colors hover:bg-linen-bg"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-slate-900">Table #{order.table_number}</p>
-                      <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{order.status}</span>
+                      <p className="text-[13px] font-medium text-linen-text-primary">Table #{order.table_number}</p>
+                      <span className={`rounded-linen-pill px-2 py-0.5 text-[11px] font-semibold uppercase ${
+                        order.status === 'completed' ? 'bg-[#DCFCE7] text-linen-success' :
+                        order.status === 'preparing' || order.status === 'to_cook' ? 'bg-[#FEF3C7] text-linen-amber' :
+                        'bg-linen-surface-2 text-linen-text-secondary'
+                      }`}>{order.status}</span>
                     </div>
-                    <p className="mt-1 text-xs text-slate-500">Payment: {order.payment_status}</p>
-                    <p className="mt-1 text-xs text-slate-600">Items: {(order.items || []).map((i) => `${i.name} x${i.quantity}`).join(', ') || 'No items'}</p>
+                    <p className="mt-1 text-xs text-linen-text-muted">Payment: {order.payment_status}</p>
+                    <p className="mt-1 text-xs text-linen-text-secondary">{(order.items || []).map((i) => `${i.name} ×${i.quantity}`).join(', ') || 'No items'}</p>
                   </button>
                 ))
               )}

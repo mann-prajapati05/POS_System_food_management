@@ -2,18 +2,18 @@ import ItemRow from './ItemRow';
 
 const STAGE_STYLE = {
   to_cook: {
-    card: 'border-amber-200 bg-amber-50/70',
-    badge: 'bg-amber-100 text-amber-800',
+    card: 'border-l-[3px] border-l-[#EF4444]',
+    badge: 'bg-[#EF4444]/20 text-[#EF4444]',
     label: 'To Cook',
   },
   preparing: {
-    card: 'border-orange-200 bg-orange-50/70',
-    badge: 'bg-orange-100 text-orange-800',
+    card: 'border-l-[3px] border-l-[#F59E0B]',
+    badge: 'bg-[#F59E0B]/20 text-[#F59E0B]',
     label: 'Preparing',
   },
   completed: {
-    card: 'border-emerald-200 bg-emerald-50/70',
-    badge: 'bg-emerald-100 text-emerald-800',
+    card: 'border-l-[3px] border-l-[#22C55E]',
+    badge: 'bg-[#22C55E]/20 text-[#22C55E]',
     label: 'Completed',
   },
 };
@@ -45,25 +45,25 @@ export default function TicketCard({
           cardAction();
         }
       }}
-      className={`rounded-2xl border p-4 shadow-sm transition-all ${style.card} ${cardAction ? 'cursor-pointer hover:scale-[1.01]' : ''}`}
+      className={`rounded-[10px] border border-[#2A2A2A] bg-[#1A1A1A] p-3.5 transition-all ${style.card} ${cardAction ? 'cursor-pointer hover:border-[#3A3A3A]' : ''}`}
     >
       <header className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="text-lg font-bold text-slate-900">{order.ticketLabel}</h3>
-          <p className="text-xs text-slate-600">Floor {order.floor_name} • Table {order.table_number}</p>
+          <h3 className="font-mono text-[13px] font-semibold text-[#F5F5F5]">{order.ticketLabel}</h3>
+          <p className="text-[11px] text-[#888888]">Table {order.table_number}</p>
         </div>
-        <span className={`rounded-lg px-2 py-1 text-xs font-semibold ${style.badge}`}>
+        <span className={`rounded-linen-pill px-2 py-0.5 text-[11px] font-semibold uppercase ${style.badge}`}>
           {style.label}
         </span>
       </header>
 
       {isUpdated && (
-        <div className="mt-2 inline-flex rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] font-semibold text-sky-700">
+        <div className="mt-2 inline-flex rounded-linen-sm border border-[#2563EB]/30 bg-[#2563EB]/10 px-2 py-0.5 text-[11px] font-semibold text-[#60A5FA]">
           Updated
         </div>
       )}
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-3 space-y-0.5">
         {order.items.map((item) => {
           const staged = Number(stagedPreparedMap[item.itemId] || 0);
           const basePrepared = Number(item.quantityPrepared ?? 0);
@@ -81,9 +81,9 @@ export default function TicketCard({
         })}
       </div>
 
-      <footer className="mt-4 flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold text-slate-600">
-          {order.preparedCountDisplay}/{order.totalQuantityDisplay} qty prepared
+      <footer className="mt-3 flex items-center justify-between gap-2">
+        <p className="font-mono text-xs text-[#888888]">
+          {order.preparedCountDisplay}/{order.totalQuantityDisplay} prepared
         </p>
 
         {stage === 'to_cook' && (
@@ -94,9 +94,9 @@ export default function TicketCard({
               e.stopPropagation();
               onPromote(order);
             }}
-            className="rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-linen bg-[#EF4444] px-3 py-1.5 text-xs font-semibold text-white transition-all hover:bg-[#DC2626] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Move to Preparing
+            Start Preparing
           </button>
         )}
 
@@ -108,9 +108,9 @@ export default function TicketCard({
               e.stopPropagation();
               onComplete(order);
             }}
-            className="rounded-xl bg-orange-500 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-linen bg-[#F59E0B] px-3 py-1.5 text-xs font-semibold text-white transition-all hover:bg-[#D97706] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Mark Completed
+            Mark Done
           </button>
         )}
 
@@ -122,9 +122,9 @@ export default function TicketCard({
               e.stopPropagation();
               onServe(order);
             }}
-            className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition-all hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-linen bg-[#22C55E] px-3 py-1.5 text-xs font-semibold text-white transition-all hover:bg-[#16A34A] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Served (Remove)
+            Served
           </button>
         )}
       </footer>

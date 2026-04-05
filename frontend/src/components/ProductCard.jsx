@@ -4,12 +4,16 @@ export default function ProductCard({ product, onAdd, disabled = false }) {
       type="button"
       disabled={disabled}
       onClick={() => onAdd(product)}
-      className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left transition-all hover:border-sky-300 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60"
+      className="flex w-full flex-col rounded-linen-lg border border-linen-border bg-white p-4 text-left transition-all duration-150 hover:border-linen-primary active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-60"
     >
-      <p className="text-sm font-semibold text-slate-900">{product.name}</p>
-      <p className="mt-1 text-xs text-slate-500">{product.category_name}</p>
-      {product.description && <p className="mt-2 line-clamp-2 text-xs text-slate-500">{product.description}</p>}
-      <p className="mt-3 text-sm font-bold text-slate-900">${Number(product.price || 0).toFixed(2)}</p>
+      <p className="text-[13px] font-medium text-linen-text-primary">{product.name}</p>
+      <p className="mt-0.5 text-[11px] text-linen-text-muted">{product.category_name}</p>
+      {product.description && (
+        <p className="mt-2 line-clamp-2 text-xs text-linen-text-secondary">{product.description}</p>
+      )}
+      <p className="mt-auto pt-3 font-mono text-base font-bold text-linen-text-primary">
+        ${Number(product.price || 0).toFixed(2)}
+      </p>
     </button>
   );
 }

@@ -10,15 +10,17 @@ const INITIAL_FORM = {
   variants: [],
 };
 
+const inputClass = "mt-1.5 h-10 w-full rounded-linen border border-linen-border bg-white px-3 text-sm text-linen-text-primary outline-none transition-colors placeholder:text-linen-text-muted focus:border-linen-primary";
+
 function VariantEditor({ variants, onChange }) {
   return (
-    <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+    <div className="space-y-2 rounded-linen-lg border border-linen-border p-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-slate-700">Variants (UI only)</p>
+        <p className="text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Variants (UI only)</p>
         <button
           type="button"
           onClick={() => onChange([...variants, { id: Date.now(), name: '', options: '' }])}
-          className="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+          className="rounded-linen-sm border border-linen-border px-2 py-1 text-xs font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2"
         >
           Add Variant
         </button>
@@ -30,25 +32,25 @@ function VariantEditor({ variants, onChange }) {
             value={variant.name}
             onChange={(e) => onChange(variants.map((v) => (v.id === variant.id ? { ...v, name: e.target.value } : v)))}
             placeholder="Variant name (e.g. Size)"
-            className="rounded-lg border border-slate-200 px-2 py-2 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+            className="h-9 rounded-linen border border-linen-border px-2 text-sm outline-none focus:border-linen-primary"
           />
           <input
             value={variant.options}
             onChange={(e) => onChange(variants.map((v) => (v.id === variant.id ? { ...v, options: e.target.value } : v)))}
             placeholder="Options (S,M,L:+20)"
-            className="rounded-lg border border-slate-200 px-2 py-2 text-sm outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+            className="h-9 rounded-linen border border-linen-border px-2 text-sm outline-none focus:border-linen-primary"
           />
           <button
             type="button"
             onClick={() => onChange(variants.filter((v) => v.id !== variant.id))}
-            className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+            className="rounded-linen-sm border border-red-200 px-3 py-1 text-xs font-medium text-linen-danger transition-colors hover:bg-red-50"
           >
             Remove
           </button>
         </div>
       ))}
 
-      {variants.length === 0 && <p className="text-xs text-slate-500">No variants configured.</p>}
+      {variants.length === 0 && <p className="text-xs text-linen-text-muted">No variants configured.</p>}
     </div>
   );
 }
@@ -80,9 +82,9 @@ export default function ProductForm({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-900/35 p-4">
-      <section className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-        <h3 className="text-xl font-bold text-slate-900">{mode === 'edit' ? 'Edit Product' : 'Create Product'}</h3>
+    <div className="linen-modal-backdrop">
+      <section className="linen-modal w-full max-w-2xl p-6">
+        <h3 className="text-lg font-semibold text-linen-text-primary">{mode === 'edit' ? 'Edit Product' : 'Create Product'}</h3>
 
         <form
           className="mt-4 grid gap-4 sm:grid-cols-2"
@@ -99,24 +101,14 @@ export default function ProductForm({
             });
           }}
         >
-          <label className="block text-sm font-semibold text-slate-700 sm:col-span-2">
+          <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary sm:col-span-2">
             Product Name
-            <input
-              value={form.name}
-              onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              required
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-            />
+            <input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} required className={inputClass} />
           </label>
 
-          <label className="block text-sm font-semibold text-slate-700">
+          <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">
             Category
-            <select
-              value={form.categoryId}
-              onChange={(e) => setForm((prev) => ({ ...prev, categoryId: e.target.value }))}
-              required
-              className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-            >
+            <select value={form.categoryId} onChange={(e) => setForm((prev) => ({ ...prev, categoryId: e.target.value }))} required className={inputClass + " bg-white"}>
               <option value="">Select category</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>{category.name}</option>
@@ -124,54 +116,38 @@ export default function ProductForm({
             </select>
           </label>
 
-          <label className="block text-sm font-semibold text-slate-700">
+          <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">
             Base Price
-            <input
-              type="number"
-              min={0.01}
-              step="0.01"
-              value={form.price}
-              onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
-              required
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-            />
+            <input type="number" min={0.01} step="0.01" value={form.price} onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))} required className={inputClass} />
           </label>
 
-          <label className="block text-sm font-semibold text-slate-700 sm:col-span-2">
+          <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary sm:col-span-2">
             Description
-            <textarea
-              rows={3}
-              value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-            />
+            <textarea rows={3} value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} className="mt-1.5 w-full rounded-linen border border-linen-border bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-linen-primary" />
           </label>
 
-          <label className="block text-sm font-semibold text-slate-700 sm:col-span-2">
+          <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary sm:col-span-2">
             Image URL (optional)
-            <input
-              value={form.image}
-              onChange={(e) => setForm((prev) => ({ ...prev, image: e.target.value }))}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-            />
+            <input value={form.image} onChange={(e) => setForm((prev) => ({ ...prev, image: e.target.value }))} className={inputClass} />
           </label>
 
           <div className="sm:col-span-2">
             <VariantEditor variants={form.variants} onChange={(variants) => setForm((prev) => ({ ...prev, variants }))} />
           </div>
 
-          <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 sm:col-span-2">
+          <label className="inline-flex items-center gap-2 rounded-linen border border-linen-border px-3 py-2.5 text-[13px] font-medium text-linen-text-primary sm:col-span-2">
             <input
               type="checkbox"
               checked={Boolean(form.isAvailable)}
               onChange={(e) => setForm((prev) => ({ ...prev, isAvailable: e.target.checked }))}
+              className="h-4 w-4 rounded border-linen-border accent-linen-primary"
             />
             Product is active
           </label>
 
           <div className="flex justify-end gap-2 sm:col-span-2">
-            <button type="button" onClick={onClose} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Cancel</button>
-            <button type="submit" disabled={submitting} className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70">
+            <button type="button" onClick={onClose} className="h-9 rounded-linen border border-linen-border px-4 text-[13px] font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2">Cancel</button>
+            <button type="submit" disabled={submitting} className="h-9 rounded-linen bg-linen-primary px-4 text-[13px] font-medium text-white transition-colors hover:bg-linen-primary-hover disabled:opacity-70">
               {submitting ? 'Saving...' : mode === 'edit' ? 'Update Product' : 'Create Product'}
             </button>
           </div>

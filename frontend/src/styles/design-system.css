@@ -1,0 +1,228 @@
+/* ========================================
+   LINEN POS — Design System
+   ======================================== */
+
+/* --- Color Tokens --- */
+:root {
+  /* Backgrounds */
+  --bg-base: #F8F7F4;
+  --bg-surface-1: #FFFFFF;
+  --bg-surface-2: #F2F1EE;
+  --bg-surface-3: #ECEAE6;
+
+  /* Borders */
+  --border-default: #E4E2DC;
+  --border-strong: #C9C7C0;
+
+  /* Accents */
+  --primary: #1A1A1A;
+  --primary-hover: #333333;
+  --amber: #D97706;
+  --success: #16A34A;
+  --danger: #DC2626;
+  --info: #2563EB;
+  --lime: #84CC16;
+
+  /* Text */
+  --text-primary: #1A1A1A;
+  --text-secondary: #6B6966;
+  --text-muted: #A8A5A0;
+
+  /* Typography */
+  --font-sans: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --text-base: 14px;
+  --line-height: 1.6;
+
+  /* Spacing (4px base) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+  --sp-12: 48px;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 100px;
+
+  /* Elevation */
+  --shadow-modal: 0 8px 32px rgba(0, 0, 0, 0.08);
+  --shadow-toast: 0 4px 16px rgba(0, 0, 0, 0.08);
+
+  /* Badge colors */
+  --badge-available-bg: #DCFCE7;
+  --badge-available-text: #16A34A;
+  --badge-occupied-bg: #FEF3C7;
+  --badge-occupied-text: #D97706;
+  --badge-admin-bg: #EFF6FF;
+  --badge-admin-text: #2563EB;
+  --badge-staff-bg: #F2F1EE;
+  --badge-staff-text: #6B6966;
+}
+
+/* --- Global Reset Enhancements --- */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--line-height);
+  color: var(--text-primary);
+  background: var(--bg-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-synthesis: none;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+
+/* --- Label Style --- */
+.linen-label {
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+/* --- Monospace Numbers --- */
+.linen-mono {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Animations --- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes cartFlash {
+  0% { background-color: transparent; }
+  30% { background-color: var(--bg-surface-2); }
+  100% { background-color: transparent; }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes checkDraw {
+  0% { stroke-dashoffset: 100; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Page Mount Animation --- */
+.linen-page {
+  animation: fadeIn 200ms ease;
+}
+
+/* --- Modal --- */
+.linen-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 150ms ease;
+}
+
+.linen-modal {
+  background: var(--bg-surface-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-modal);
+  animation: modalIn 200ms ease;
+}
+
+/* --- Interactive Transitions --- */
+button, a, input, select, textarea {
+  transition: all 150ms ease;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* --- Shimmer Loading --- */
+.linen-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface-2) 25%,
+    var(--bg-surface-3) 50%,
+    var(--bg-surface-2) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite;
+  border-radius: var(--radius-md);
+}
+
+/* --- Kitchen Dark Theme Overrides --- */
+.kitchen-dark {
+  --bg-base: #0D0D0D;
+  --bg-surface-1: #1A1A1A;
+  --bg-surface-2: #111111;
+  --bg-surface-3: #222222;
+  --border-default: #2A2A2A;
+  --border-strong: #3A3A3A;
+  --text-primary: #F5F5F5;
+  --text-secondary: #888888;
+  --text-muted: #555555;
+}

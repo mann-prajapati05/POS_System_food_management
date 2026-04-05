@@ -45,90 +45,75 @@ export default function AdminSignup() {
     }
   };
 
+  const inputClass = "h-11 w-full rounded-linen border border-linen-border bg-white px-3 text-sm text-linen-text-primary outline-none transition-colors placeholder:text-linen-text-muted focus:border-linen-primary";
+
   return (
-    <main className="relative flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
-      <section className="relative w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_30px_80px_-35px_rgba(15,23,42,0.35)]">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-          Admin Onboarding
-        </p>
-        <h1 className="mt-3 text-3xl font-bold text-slate-900">
-          Create Admin + POS
-        </h1>
+    <main className="flex min-h-screen animate-fade-in">
+      <div className="hidden w-1/2 flex-col justify-between bg-linen-primary p-10 lg:flex">
+        <div className="flex h-8 w-8 items-center justify-center rounded-linen-sm bg-white/10 font-mono text-[13px] font-semibold text-white">
+          ADM
+        </div>
+        <div className="max-w-md">
+          <p className="text-[36px] font-light leading-[1.3] text-white">
+            Set up your restaurant in minutes.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-2">
+            {["Create POS", "Configure Floors", "Add Products"].map((f) => (
+              <span key={f} className="rounded-linen-pill border border-white/[0.12] bg-white/[0.08] px-3 py-1.5 text-xs text-white">{f}</span>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-white/30">Odoo POS Cafe — Admin Onboarding</p>
+      </div>
 
-        <form onSubmit={onSubmit} className="mt-8 grid gap-4 sm:grid-cols-2">
-          <input
-            name="name"
-            value={formData.name}
-            onChange={onChange}
-            required
-            placeholder="Admin name"
-            className="sm:col-span-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-          />
-          <input
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={onChange}
-            required
-            placeholder="admin@company.com"
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-          />
-          <input
-            name="password"
-            type="password"
-            value={formData.password}
-            onChange={onChange}
-            minLength={8}
-            required
-            placeholder="Password"
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-          />
-          <input
-            name="newPosName"
-            value={formData.newPosName}
-            onChange={onChange}
-            required
-            placeholder="POS name"
-            className="sm:col-span-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-          />
-          <input
-            name="adminSecretCode"
-            type="password"
-            value={formData.adminSecretCode}
-            onChange={onChange}
-            required
-            placeholder="Admin secret code"
-            className="sm:col-span-2 w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-          />
+      <div className="flex w-full items-center justify-center bg-linen-bg px-6 py-10 lg:w-1/2">
+        <section className="w-full max-w-[400px]">
+          <h1 className="text-[28px] font-semibold text-linen-text-primary">Create Admin + POS</h1>
+          <p className="mt-1 text-sm text-linen-text-secondary">Set up your admin account and POS system</p>
 
-          {createdPos && (
-            <div className="sm:col-span-2 rounded-xl bg-emerald-50 px-3 py-3 text-sm text-emerald-700">
-              POS Created: {createdPos.name} | Unique ID: {createdPos.uniqueId}
+          <form onSubmit={onSubmit} className="mt-8 space-y-5">
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Admin Name</span>
+              <input name="name" value={formData.name} onChange={onChange} required placeholder="Admin name" className={inputClass} />
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Email</span>
+                <input name="email" type="email" value={formData.email} onChange={onChange} required placeholder="admin@company.com" className={inputClass} />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Password</span>
+                <input name="password" type="password" value={formData.password} onChange={onChange} minLength={8} required placeholder="Min 8 chars" className={inputClass} />
+              </label>
             </div>
-          )}
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">POS Name</span>
+              <input name="newPosName" value={formData.newPosName} onChange={onChange} required placeholder="e.g. Main Floor POS" className={inputClass} />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Admin Secret Code</span>
+              <input name="adminSecretCode" type="password" value={formData.adminSecretCode} onChange={onChange} required placeholder="Secret code from env" className={inputClass} />
+            </label>
 
-          {error && (
-            <p className="sm:col-span-2 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-600">
-              {error}
-            </p>
-          )}
+            {createdPos && (
+              <div className="rounded-linen-lg border border-linen-success/30 bg-green-50 px-3 py-3 text-sm text-linen-success">
+                POS Created: {createdPos.name} | Unique ID: <span className="font-mono font-semibold">{createdPos.uniqueId}</span>
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="sm:col-span-2 inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-3 text-sm font-bold text-white disabled:opacity-70"
-          >
-            {submitting ? "Creating..." : "Create Admin Account"}
-          </button>
-        </form>
+            {error && <p className="rounded-linen bg-red-50 px-3 py-2 text-sm text-linen-danger">{error}</p>}
 
-        <p className="mt-6 text-center text-sm text-slate-500">
-          Already admin?{" "}
-          <Link to="/admin/login" className="font-semibold text-sky-600">
-            Go to admin login
-          </Link>
-        </p>
-      </section>
+            <button type="submit" disabled={submitting} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-linen bg-linen-primary text-sm font-medium text-white transition-colors hover:bg-linen-primary-hover disabled:cursor-not-allowed disabled:opacity-70">
+              {submitting ? "Creating..." : "Create Admin Account"}
+            </button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-linen-text-secondary">
+            Already admin?{" "}
+            <Link to="/admin/login" className="font-medium text-linen-text-primary hover:underline">Go to admin login</Link>
+          </p>
+        </section>
+      </div>
     </main>
   );
 }

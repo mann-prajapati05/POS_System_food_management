@@ -12,6 +12,11 @@ import {
   updateTable,
 } from "../services/adminService";
 
+const btnNav = "h-9 rounded-linen border border-linen-border px-4 text-[13px] font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2";
+const inputCell = "h-8 w-24 rounded-linen-sm border border-linen-border px-2 text-[13px] outline-none focus:border-linen-primary";
+const selectCell = "h-8 rounded-linen-sm border border-linen-border bg-white px-2 text-[13px] outline-none focus:border-linen-primary";
+const inputFull = "mt-1.5 h-10 w-full rounded-linen border border-linen-border bg-white px-3 text-sm outline-none transition-colors focus:border-linen-primary";
+
 export default function AdminFloorsTables() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -243,53 +248,27 @@ export default function AdminFloorsTables() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10">
+    <main className="min-h-screen bg-linen-bg px-4 py-8 animate-fade-in">
       <section className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <header className="rounded-linen-lg border border-linen-border bg-white p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                Admin Layout
-              </p>
-              <h1 className="mt-2 text-3xl font-bold text-slate-900">
-                Floors & Tables Management
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Create, update, and delete floors/tables for any POS.
-              </p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-muted">Admin Layout</p>
+              <h1 className="mt-2 text-2xl font-semibold text-linen-text-primary">Floors & Tables Management</h1>
+              <p className="mt-1 text-sm text-linen-text-secondary">Create, update, and delete floors/tables for any POS.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link
-                to="/dashboard"
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Console
-              </Link>
-              <Link
-                to="/admin/analytics"
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Analytics
-              </Link>
-              <Link
-                to="/admin/realtime-orders"
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Real-time Orders
-              </Link>
-              <Link
-                to="/admin/pos"
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Open POS
-              </Link>
+              <Link to="/dashboard" className={btnNav}>Console</Link>
+              <Link to="/admin/analytics" className={btnNav}>Analytics</Link>
+              <Link to="/admin/realtime-orders" className={btnNav}>Real-time Orders</Link>
+              <Link to="/admin/pos" className={btnNav}>Open POS</Link>
             </div>
           </div>
         </header>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-linen-lg border border-linen-border bg-white p-6">
           <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
-            <label className="text-sm font-semibold text-slate-700">
+            <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">
               POS
               <select
                 value={selectedPosId}
@@ -311,7 +290,7 @@ export default function AdminFloorsTables() {
                     }
                   }
                 }}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                className={inputFull}
               >
                 {posList.map((pos) => (
                   <option key={pos.id} value={pos.id}>
@@ -321,43 +300,21 @@ export default function AdminFloorsTables() {
               </select>
             </label>
 
-            <button
-              type="button"
-              onClick={() => loadPosAndFloors(selectedPosId)}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-            >
-              Reload
-            </button>
+            <button type="button" onClick={() => loadPosAndFloors(selectedPosId)} className={btnNav}>Reload</button>
           </div>
 
-          <form
-            onSubmit={onCreateFloor}
-            className="mt-5 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end"
-          >
-            <label className="text-sm font-semibold text-slate-700">
+          <form onSubmit={onCreateFloor} className="mt-5 grid gap-3 md:grid-cols-[1fr_auto_auto] md:items-end">
+            <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">
               New Floor Name
-              <input
-                value={newFloorName}
-                onChange={(event) => setNewFloorName(event.target.value)}
-                placeholder="Ground Floor"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-              />
+              <input value={newFloorName} onChange={(event) => setNewFloorName(event.target.value)} placeholder="Ground Floor" className={inputFull} />
             </label>
 
-            <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={newFloorActive}
-                onChange={(event) => setNewFloorActive(event.target.checked)}
-              />
+            <label className="inline-flex items-center gap-2 rounded-linen border border-linen-border px-3 py-2.5 text-[13px] font-medium text-linen-text-primary">
+              <input type="checkbox" checked={newFloorActive} onChange={(event) => setNewFloorActive(event.target.checked)} className="h-4 w-4 rounded border-linen-border accent-linen-primary" />
               Active
             </label>
 
-            <button
-              type="submit"
-              disabled={saving || !selectedPosId}
-              className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
-            >
+            <button type="submit" disabled={saving || !selectedPosId} className="h-10 rounded-linen bg-linen-primary px-4 text-[13px] font-medium text-white transition-colors hover:bg-linen-primary-hover disabled:opacity-70">
               Create Floor
             </button>
           </form>
@@ -365,217 +322,83 @@ export default function AdminFloorsTables() {
 
         <section className="space-y-4">
           {loading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
-              Loading floors and tables...
-            </div>
+            <div className="rounded-linen-lg border border-linen-border bg-white p-5 text-sm text-linen-text-secondary">Loading floors and tables...</div>
           ) : floors.length === 0 ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500 shadow-sm">
-              No floors found for selected POS.
-            </div>
+            <div className="rounded-linen-lg border border-linen-border bg-white p-5 text-sm text-linen-text-secondary">No floors found for selected POS.</div>
           ) : (
             floors.map((floor) => (
-              <article
-                key={floor.id}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-              >
+              <article key={floor.id} className="rounded-linen-lg border border-linen-border bg-white p-5">
                 <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end">
-                  <label className="text-sm font-semibold text-slate-700">
+                  <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">
                     Floor Name
-                    <input
-                      value={floor.name}
-                      onChange={(event) =>
-                        onChangeFloorLocal(floor.id, {
-                          name: event.target.value,
-                        })
-                      }
-                      className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-                    />
+                    <input value={floor.name} onChange={(event) => onChangeFloorLocal(floor.id, { name: event.target.value })} className={inputFull} />
                   </label>
 
-                  <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(floor.is_active)}
-                      onChange={(event) =>
-                        onChangeFloorLocal(floor.id, {
-                          is_active: event.target.checked,
-                        })
-                      }
-                    />
+                  <label className="inline-flex items-center gap-2 rounded-linen border border-linen-border px-3 py-2.5 text-[13px] font-medium text-linen-text-primary">
+                    <input type="checkbox" checked={Boolean(floor.is_active)} onChange={(event) => onChangeFloorLocal(floor.id, { is_active: event.target.checked })} className="h-4 w-4 rounded border-linen-border accent-linen-primary" />
                     Active
                   </label>
 
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => onUpdateFloor(floor)}
-                    className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-                  >
-                    Save Floor
-                  </button>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => onDeleteFloor(floor.id)}
-                    className="rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50"
-                  >
-                    Delete Floor
-                  </button>
+                  <button type="button" disabled={saving} onClick={() => onUpdateFloor(floor)} className={btnNav}>Save Floor</button>
+                  <button type="button" disabled={saving} onClick={() => onDeleteFloor(floor.id)} className="h-9 rounded-linen border border-red-200 px-4 text-[13px] font-medium text-linen-danger transition-colors hover:bg-red-50">Delete Floor</button>
                 </div>
 
-                <div className="mt-4 overflow-hidden rounded-xl border border-slate-200">
-                  <table className="w-full border-collapse text-sm">
-                    <thead className="bg-slate-50 text-left text-slate-500">
-                      <tr>
-                        <th className="px-3 py-2">Table #</th>
-                        <th className="px-3 py-2">Seats</th>
-                        <th className="px-3 py-2">Status</th>
-                        <th className="px-3 py-2">Active</th>
-                        <th className="px-3 py-2">Actions</th>
+                <div className="mt-4 overflow-hidden rounded-linen-lg border border-linen-border">
+                  <table className="w-full border-collapse text-[13px]">
+                    <thead>
+                      <tr className="border-b border-linen-border bg-linen-surface-2">
+                        <th className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Table #</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Seats</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Status</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Active</th>
+                        <th className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {floor.tables.map((table) => (
-                        <tr
-                          key={table.id}
-                          className="border-t border-slate-100"
-                        >
+                        <tr key={table.id} className="border-t border-linen-surface-2">
                           <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              min={1}
-                              value={table.table_number}
-                              onChange={(event) =>
-                                onChangeTableLocal(floor.id, table.id, {
-                                  table_number: Number(event.target.value || 0),
-                                })
-                              }
-                              className="w-24 rounded-lg border border-slate-200 px-2 py-1"
-                            />
+                            <input type="number" min={1} value={table.table_number} onChange={(event) => onChangeTableLocal(floor.id, table.id, { table_number: Number(event.target.value || 0) })} className={inputCell} />
                           </td>
                           <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              min={1}
-                              value={table.seats}
-                              onChange={(event) =>
-                                onChangeTableLocal(floor.id, table.id, {
-                                  seats: Number(event.target.value || 0),
-                                })
-                              }
-                              className="w-24 rounded-lg border border-slate-200 px-2 py-1"
-                            />
+                            <input type="number" min={1} value={table.seats} onChange={(event) => onChangeTableLocal(floor.id, table.id, { seats: Number(event.target.value || 0) })} className={inputCell} />
                           </td>
                           <td className="px-3 py-2">
-                            <select
-                              value={table.status}
-                              onChange={(event) =>
-                                onChangeTableLocal(floor.id, table.id, {
-                                  status: event.target.value,
-                                })
-                              }
-                              className="rounded-lg border border-slate-200 px-2 py-1"
-                            >
+                            <select value={table.status} onChange={(event) => onChangeTableLocal(floor.id, table.id, { status: event.target.value })} className={selectCell}>
                               <option value="available">available</option>
                               <option value="occupied">occupied</option>
                             </select>
                           </td>
                           <td className="px-3 py-2">
-                            <input
-                              type="checkbox"
-                              checked={Boolean(table.is_active)}
-                              onChange={(event) =>
-                                onChangeTableLocal(floor.id, table.id, {
-                                  is_active: event.target.checked,
-                                })
-                              }
-                            />
+                            <input type="checkbox" checked={Boolean(table.is_active)} onChange={(event) => onChangeTableLocal(floor.id, table.id, { is_active: event.target.checked })} className="h-4 w-4 rounded border-linen-border accent-linen-primary" />
                           </td>
                           <td className="px-3 py-2">
                             <div className="flex gap-2">
-                              <button
-                                type="button"
-                                disabled={saving}
-                                onClick={() => onUpdateTable(table)}
-                                className="rounded-lg border border-slate-200 px-3 py-1 hover:bg-slate-100"
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                disabled={saving}
-                                onClick={() => onDeleteTable(table.id)}
-                                className="rounded-lg border border-rose-200 px-3 py-1 text-rose-600 hover:bg-rose-50"
-                              >
-                                Delete
-                              </button>
+                              <button type="button" disabled={saving} onClick={() => onUpdateTable(table)} className="rounded-linen-sm border border-linen-border px-3 py-1 text-xs font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2">Save</button>
+                              <button type="button" disabled={saving} onClick={() => onDeleteTable(table.id)} className="rounded-linen-sm border border-red-200 px-3 py-1 text-xs font-medium text-linen-danger transition-colors hover:bg-red-50">Delete</button>
                             </div>
                           </td>
                         </tr>
                       ))}
 
-                      <tr className="border-t border-slate-100 bg-slate-50/50">
+                      <tr className="border-t border-linen-surface-2 bg-linen-bg/50">
                         <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min={1}
-                            value={getNewTableDraft(floor.id).tableNumber}
-                            onChange={(event) =>
-                              setNewTableDraft(floor.id, {
-                                tableNumber: event.target.value,
-                              })
-                            }
-                            placeholder="New #"
-                            className="w-24 rounded-lg border border-slate-200 px-2 py-1"
-                          />
+                          <input type="number" min={1} value={getNewTableDraft(floor.id).tableNumber} onChange={(event) => setNewTableDraft(floor.id, { tableNumber: event.target.value })} placeholder="New #" className={inputCell} />
                         </td>
                         <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            min={1}
-                            value={getNewTableDraft(floor.id).seats}
-                            onChange={(event) =>
-                              setNewTableDraft(floor.id, {
-                                seats: event.target.value,
-                              })
-                            }
-                            className="w-24 rounded-lg border border-slate-200 px-2 py-1"
-                          />
+                          <input type="number" min={1} value={getNewTableDraft(floor.id).seats} onChange={(event) => setNewTableDraft(floor.id, { seats: event.target.value })} className={inputCell} />
                         </td>
                         <td className="px-3 py-2">
-                          <select
-                            value={getNewTableDraft(floor.id).status}
-                            onChange={(event) =>
-                              setNewTableDraft(floor.id, {
-                                status: event.target.value,
-                              })
-                            }
-                            className="rounded-lg border border-slate-200 px-2 py-1"
-                          >
+                          <select value={getNewTableDraft(floor.id).status} onChange={(event) => setNewTableDraft(floor.id, { status: event.target.value })} className={selectCell}>
                             <option value="available">available</option>
                             <option value="occupied">occupied</option>
                           </select>
                         </td>
                         <td className="px-3 py-2">
-                          <input
-                            type="checkbox"
-                            checked={Boolean(
-                              getNewTableDraft(floor.id).isActive,
-                            )}
-                            onChange={(event) =>
-                              setNewTableDraft(floor.id, {
-                                isActive: event.target.checked,
-                              })
-                            }
-                          />
+                          <input type="checkbox" checked={Boolean(getNewTableDraft(floor.id).isActive)} onChange={(event) => setNewTableDraft(floor.id, { isActive: event.target.checked })} className="h-4 w-4 rounded border-linen-border accent-linen-primary" />
                         </td>
                         <td className="px-3 py-2">
-                          <button
-                            type="button"
-                            disabled={saving}
-                            onClick={() => onCreateTable(floor.id)}
-                            className="rounded-lg bg-slate-900 px-3 py-1 text-white hover:bg-slate-800"
-                          >
+                          <button type="button" disabled={saving} onClick={() => onCreateTable(floor.id)} className="rounded-linen-sm bg-linen-primary px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-linen-primary-hover">
                             Add Table
                           </button>
                         </td>

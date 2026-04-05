@@ -18,6 +18,8 @@ function getPosName(user) {
   return `POS ${String(user.posId).slice(0, 8).toUpperCase()}`;
 }
 
+const btnNav = "h-9 rounded-linen border border-linen-border px-4 text-[13px] font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2";
+
 export default function AdminPos() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
@@ -103,44 +105,35 @@ export default function AdminPos() {
   }, [session, isActive]);
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10">
+    <main className="min-h-screen bg-linen-bg px-4 py-8 animate-fade-in">
       <section className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <header className="rounded-linen-lg border border-linen-border bg-white p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Admin POS</p>
-              <h1 className="mt-2 text-3xl font-bold text-slate-900">Operational POS</h1>
-              <p className="mt-1 text-sm text-slate-500">Signed in as {getDisplayName(user)}. Manage POS session while staying in admin UI.</p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-muted">Admin POS</p>
+              <h1 className="mt-2 text-2xl font-semibold text-linen-text-primary">Operational POS</h1>
+              <p className="mt-1 text-sm text-linen-text-secondary">Signed in as {getDisplayName(user)}. Manage POS session while staying in admin UI.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link to="/dashboard" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Console</Link>
-              <Link to="/admin/analytics" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Analytics</Link>
-              <Link to="/admin/realtime-orders" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Real-time Orders</Link>
-              <Link to="/admin/floors-tables" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Floors & Tables</Link>
-              <button
-                type="button"
-                onClick={() => {
-                  clearAuth();
-                  navigate('/admin/login', { replace: true });
-                }}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Logout
-              </button>
+              <Link to="/dashboard" className={btnNav}>Console</Link>
+              <Link to="/admin/analytics" className={btnNav}>Analytics</Link>
+              <Link to="/admin/realtime-orders" className={btnNav}>Real-time Orders</Link>
+              <Link to="/admin/floors-tables" className={btnNav}>Floors & Tables</Link>
+              <button type="button" onClick={() => { clearAuth(); navigate('/admin/login', { replace: true }); }} className={btnNav}>Logout</button>
             </div>
           </div>
         </header>
 
         {loading ? (
-          <div className="grid place-items-center rounded-3xl border border-slate-200 bg-white p-16 shadow-sm">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-500" />
-            <p className="mt-3 text-sm text-slate-500">Loading POS session...</p>
+          <div className="grid place-items-center rounded-linen-lg border border-linen-border bg-white p-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-linen-border border-t-linen-primary" />
+            <p className="mt-3 text-sm text-linen-text-secondary">Loading POS session...</p>
           </div>
         ) : (
           <>
-            <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-2xl font-bold text-slate-900">{stats.headline}</h2>
-              <p className="mt-2 text-slate-600">{stats.text}</p>
+            <section className="rounded-linen-lg border border-linen-border bg-white p-6">
+              <h2 className="text-xl font-semibold text-linen-text-primary">{stats.headline}</h2>
+              <p className="mt-2 text-sm text-linen-text-secondary">{stats.text}</p>
             </section>
 
             <PosCard

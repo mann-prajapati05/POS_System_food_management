@@ -364,10 +364,13 @@ export default function KitchenDashboard() {
     navigate('/login', { replace: true });
   };
 
+  /* ---------- DARK THEMED BUTTON CLASSES ---------- */
+  const btnDark = "h-9 rounded-linen border border-[#2A2A2A] bg-[#1A1A1A] px-3 text-[13px] font-medium text-[#E5E5E5] transition-colors hover:bg-[#222222] disabled:cursor-not-allowed disabled:opacity-50";
+
   if (loading) {
     return (
-      <main className="grid min-h-screen place-items-center bg-slate-50 px-4">
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm text-slate-600 shadow-sm">
+      <main className="grid min-h-screen place-items-center bg-[#0D0D0D]">
+        <div className="rounded-linen border border-[#2A2A2A] bg-[#1A1A1A] px-6 py-4 text-sm text-[#888888]">
           Loading kitchen tickets...
         </div>
       </main>
@@ -375,63 +378,60 @@ export default function KitchenDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div className="kitchen-dark min-h-screen bg-[#0D0D0D] animate-fade-in">
+      <header className="sticky top-0 z-20 border-b border-[#2A2A2A] bg-[#111111]">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Kitchen Display System</p>
-            <h1 className="text-xl font-bold text-slate-900">Kitchen Board</h1>
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-linen-sm bg-white/10 font-mono text-[11px] font-semibold text-white">
+              KDS
+            </div>
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[#555555]">Kitchen Display</p>
+              <h1 className="text-[15px] font-semibold text-[#F5F5F5]">Kitchen Board</h1>
+            </div>
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search order # or product"
-              className="w-64 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-            />
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#555555]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search order or product"
+                className="h-9 w-56 rounded-linen border border-[#2A2A2A] bg-[#1A1A1A] pl-9 pr-3 text-[13px] text-[#E5E5E5] outline-none transition-colors placeholder:text-[#555555] focus:border-[#3A3A3A]"
+              />
+            </div>
 
             <select
               value={perPage}
               onChange={(e) => setPerPage(Number(e.target.value))}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+              className="h-9 rounded-linen border border-[#2A2A2A] bg-[#1A1A1A] px-3 text-[13px] text-[#E5E5E5] outline-none"
             >
               <option value={1}>1 / page</option>
               <option value={2}>2 / page</option>
               <option value={3}>3 / page</option>
             </select>
 
-            <button
-              type="button"
-              onClick={() => loadOrders({ silent: true })}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-            >
+            <button type="button" onClick={() => loadOrders({ silent: true })} className={btnDark}>
               {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
-            <button
-              type="button"
-              onClick={handleEnterSession}
-              disabled={sessionBusy}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {sessionBusy ? 'Checking Session...' : hasActiveSession ? 'Enter Active Session' : 'Create / Enter Session'}
+            <button type="button" onClick={handleEnterSession} disabled={sessionBusy} className={btnDark}>
+              {sessionBusy ? 'Checking...' : hasActiveSession ? 'Session Active' : 'Enter Session'}
             </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-            >
+            <button type="button" onClick={handleLogout} className={btnDark}>
               Logout
             </button>
           </div>
 
-          <div className="w-full">
+          <div className="w-full pt-2">
             <StatusTabs activeTab={activeTab} counts={counts} onChange={setActiveTab} />
           </div>
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-6 lg:grid-cols-[280px_1fr]">
+      <main className="mx-auto grid w-full max-w-7xl gap-4 px-4 py-6 lg:grid-cols-[240px_1fr]">
         <FilterSidebar
           products={productOptions}
           categories={categoryOptions}
@@ -447,24 +447,28 @@ export default function KitchenDashboard() {
 
         <section>
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-600">
-              Showing {paged.length} of {filtered.length} tickets • POS {user?.pos_id || user?.posId || '-'}
+            <p className="text-[13px] font-medium text-[#888888]">
+              {paged.length} of {filtered.length} tickets
             </p>
-            <p className="text-xs text-slate-500">Page {page} / {pageCount}</p>
+            <p className="font-mono text-xs text-[#555555]">Page {page} / {pageCount}</p>
           </div>
 
           {!hasActiveSession && (
-            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-              No active session selected. Click "Create / Enter Session" to join current session or open a new one.
+            <div className="mb-4 rounded-linen border border-[#F59E0B]/30 bg-[#F59E0B]/10 px-4 py-3 text-[13px] font-medium text-[#F59E0B]">
+              No active session. Click "Enter Session" to join or create one.
             </div>
           )}
 
           {paged.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-              No kitchen tickets match your filters.
+            <div className="flex flex-col items-center rounded-linen-lg border border-dashed border-[#2A2A2A] bg-[#1A1A1A] px-6 py-16 text-center">
+              <svg className="h-12 w-12 text-[#2A2A2A]" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+              <p className="mt-3 text-sm text-[#888888]">No kitchen tickets match your filters</p>
+              <p className="mt-1 text-[13px] text-[#555555]">Tickets will appear here when orders are sent from POS</p>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {paged.map((order) => (
                 <TicketCard
                   key={order.id}
@@ -488,7 +492,7 @@ export default function KitchenDashboard() {
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className={btnDark}
             >
               Prev
             </button>
@@ -496,7 +500,7 @@ export default function KitchenDashboard() {
               type="button"
               disabled={page >= pageCount}
               onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+              className={btnDark}
             >
               Next
             </button>

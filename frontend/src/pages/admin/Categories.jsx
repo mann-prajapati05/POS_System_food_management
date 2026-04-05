@@ -11,6 +11,8 @@ import {
 } from "../../services/categoryService";
 import { listPos } from "../../services/adminService";
 
+const btnNav = "h-9 rounded-linen border border-linen-border px-4 text-[13px] font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2";
+
 export default function Categories() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -104,47 +106,26 @@ export default function Categories() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10">
+    <main className="min-h-screen bg-linen-bg px-4 py-8 animate-fade-in">
       <section className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <header className="rounded-linen-lg border border-linen-border bg-white p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                Admin Catalog
-              </p>
-              <h1 className="mt-2 text-3xl font-bold text-slate-900">
-                Category Management
-              </h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Create and maintain categories per POS.
-              </p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-muted">Admin Catalog</p>
+              <h1 className="mt-2 text-2xl font-semibold text-linen-text-primary">Category Management</h1>
+              <p className="mt-1 text-sm text-linen-text-secondary">Create and maintain categories per POS.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link
-                to="/dashboard"
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Console
-              </Link>
-              <Link
-                to="/admin/products"
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                Products
-              </Link>
-              <button
-                type="button"
-                onClick={openCreate}
-                disabled={submitting}
-                className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
-              >
+              <Link to="/dashboard" className={btnNav}>Console</Link>
+              <Link to="/admin/products" className={btnNav}>Products</Link>
+              <button type="button" onClick={openCreate} disabled={submitting} className="h-9 rounded-linen bg-linen-primary px-4 text-[13px] font-medium text-white transition-colors hover:bg-linen-primary-hover disabled:opacity-70">
                 Create Category
               </button>
             </div>
           </div>
 
           <div className="mt-4 max-w-sm">
-            <label className="block text-sm font-semibold text-slate-700">
+            <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">
               POS
               <select
                 value={selectedPosId}
@@ -153,12 +134,10 @@ export default function Categories() {
                   setSelectedPosId(posId);
                   await load(posId);
                 }}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+                className="mt-1.5 h-10 w-full rounded-linen border border-linen-border bg-white px-3 text-sm outline-none transition-colors focus:border-linen-primary"
               >
                 {posList.map((pos) => (
-                  <option key={pos.id} value={pos.id}>
-                    {pos.name}
-                  </option>
+                  <option key={pos.id} value={pos.id}>{pos.name}</option>
                 ))}
               </select>
             </label>
@@ -166,9 +145,7 @@ export default function Categories() {
         </header>
 
         {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
-            Loading categories...
-          </div>
+          <div className="rounded-linen-lg border border-linen-border bg-white p-6 text-sm text-linen-text-secondary">Loading categories...</div>
         ) : (
           <CategoryTable
             categories={categories}

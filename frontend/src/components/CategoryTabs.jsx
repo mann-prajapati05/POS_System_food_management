@@ -3,12 +3,19 @@ export default function CategoryTabs({
   selectedCategoryId,
   onSelect,
 }) {
+  const tabBase =
+    "h-8 rounded-linen-pill border px-3 text-[13px] font-medium transition-all duration-150 whitespace-nowrap";
+  const tabActive =
+    "border-linen-primary bg-linen-primary text-white";
+  const tabInactive =
+    "border-linen-border bg-transparent text-linen-text-secondary hover:border-linen-border-strong hover:bg-linen-surface-2";
+
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       <button
         type="button"
         onClick={() => onSelect("")}
-        className={`rounded-xl border px-3 py-2 text-sm font-semibold ${selectedCategoryId ? "border-slate-200 text-slate-700 hover:bg-slate-100" : "border-sky-300 bg-sky-50 text-sky-700"}`}
+        className={`${tabBase} ${selectedCategoryId ? tabInactive : tabActive}`}
       >
         All
       </button>
@@ -18,7 +25,7 @@ export default function CategoryTabs({
           key={category.id}
           type="button"
           onClick={() => onSelect(category.id)}
-          className={`rounded-xl border px-3 py-2 text-sm font-semibold ${selectedCategoryId === category.id ? "border-sky-300 bg-sky-50 text-sky-700" : "border-slate-200 text-slate-700 hover:bg-slate-100"}`}
+          className={`${tabBase} ${selectedCategoryId === category.id ? tabActive : tabInactive}`}
         >
           {category.name}
         </button>

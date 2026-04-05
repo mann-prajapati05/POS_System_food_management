@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import useAuthStore from '../store/authStore';
 import { createPos, listPos } from '../services/adminService';
 
+const btnNav = "h-9 rounded-linen border border-linen-border px-4 text-[13px] font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2";
+
 export default function AdminHome() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
@@ -51,74 +53,69 @@ export default function AdminHome() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10">
-      <section className="mx-auto max-w-5xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Admin Console</p>
-            <h1 className="mt-2 text-3xl font-bold text-slate-900">Welcome, {user?.name || 'Admin'}</h1>
-            <p className="mt-1 text-sm text-slate-500">Create new POS and manage POS names + unique IDs.</p>
+    <main className="min-h-screen bg-linen-bg px-4 py-8 animate-fade-in">
+      <section className="mx-auto max-w-5xl space-y-6">
+        <header className="rounded-linen-lg border border-linen-border bg-white p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-muted">Admin Console</p>
+              <h1 className="mt-2 text-2xl font-semibold text-linen-text-primary">Welcome, {user?.name || 'Admin'}</h1>
+              <p className="mt-1 text-sm text-linen-text-secondary">Create new POS and manage POS names + unique IDs.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link to="/admin/analytics" className={btnNav}>Analytics</Link>
+              <Link to="/admin/realtime-orders" className={btnNav}>Real-time Orders</Link>
+              <Link to="/admin/categories" className={btnNav}>Categories</Link>
+              <Link to="/admin/products" className={btnNav}>Products</Link>
+              <Link to="/admin/floors-tables" className={btnNav}>Floors & Tables</Link>
+              <Link to="/admin/pos" className={btnNav}>Open POS</Link>
+              <button type="button" onClick={() => { clearAuth(); navigate('/admin/login', { replace: true }); }} className={btnNav}>Logout</button>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link to="/admin/analytics" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Analytics</Link>
-            <Link to="/admin/realtime-orders" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Real-time Orders</Link>
-            <Link to="/admin/categories" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Categories</Link>
-            <Link to="/admin/products" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Products</Link>
-            <Link to="/admin/floors-tables" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Floors & Tables</Link>
-            <Link to="/admin/pos" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Open POS</Link>
-            <button
-              type="button"
-              onClick={() => {
-                clearAuth();
-                navigate('/admin/login', { replace: true });
-              }}
-              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-            >
-              Logout
+        </header>
+
+        <div className="rounded-linen-lg border border-linen-border bg-white p-6">
+          <form onSubmit={onCreatePos} className="flex flex-col gap-3 sm:flex-row">
+            <input
+              value={newPosName}
+              onChange={(event) => setNewPosName(event.target.value)}
+              placeholder="New POS name"
+              className="h-11 w-full rounded-linen border border-linen-border bg-white px-3 text-sm text-linen-text-primary outline-none transition-colors placeholder:text-linen-text-muted focus:border-linen-primary"
+            />
+            <button type="submit" disabled={creating} className="h-11 shrink-0 rounded-linen bg-linen-primary px-5 text-sm font-medium text-white transition-colors hover:bg-linen-primary-hover disabled:opacity-70">
+              {creating ? 'Creating...' : 'Create POS'}
             </button>
-          </div>
+          </form>
         </div>
 
-        <form onSubmit={onCreatePos} className="mb-8 flex flex-col gap-3 sm:flex-row">
-          <input
-            value={newPosName}
-            onChange={(event) => setNewPosName(event.target.value)}
-            placeholder="New POS name"
-            className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-          />
-          <button
-            type="submit"
-            disabled={creating}
-            className="rounded-2xl bg-gradient-to-r from-sky-500 to-emerald-500 px-5 py-3 text-sm font-bold text-white disabled:opacity-70"
-          >
-            {creating ? 'Creating...' : 'Create POS'}
-          </button>
-        </form>
-
-        <div className="overflow-hidden rounded-2xl border border-slate-200">
-          <table className="w-full border-collapse">
-            <thead className="bg-slate-50 text-left text-sm text-slate-500">
-              <tr>
-                <th className="px-4 py-3">POS Name</th>
-                <th className="px-4 py-3">Unique ID</th>
-                <th className="px-4 py-3">Status</th>
+        <div className="overflow-hidden rounded-linen-lg border border-linen-border bg-white">
+          <table className="w-full border-collapse text-[13px]">
+            <thead>
+              <tr className="border-b border-linen-border bg-linen-surface-2">
+                <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">POS Name</th>
+                <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Unique ID</th>
+                <th className="px-4 py-3 text-left text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">Status</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={3} className="px-4 py-6 text-center text-sm text-slate-500">Loading POS list...</td>
+                  <td colSpan={3} className="px-4 py-6 text-center text-sm text-linen-text-secondary">Loading POS list...</td>
                 </tr>
               ) : posList.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-4 py-6 text-center text-sm text-slate-500">No POS found yet.</td>
+                  <td colSpan={3} className="px-4 py-6 text-center text-sm text-linen-text-secondary">No POS found yet.</td>
                 </tr>
               ) : (
                 posList.map((pos) => (
-                  <tr key={pos.id} className="border-t border-slate-100 text-sm">
-                    <td className="px-4 py-3 font-semibold text-slate-700">{pos.name}</td>
-                    <td className="px-4 py-3 text-slate-600">{pos.unique_id}</td>
-                    <td className="px-4 py-3 text-slate-600">{pos.is_active ? 'Active' : 'Inactive'}</td>
+                  <tr key={pos.id} className="border-t border-linen-surface-2">
+                    <td className="px-4 py-3 font-medium text-linen-text-primary">{pos.name}</td>
+                    <td className="px-4 py-3 font-mono text-linen-text-secondary">{pos.unique_id}</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-linen-pill px-2.5 py-0.5 text-[11px] font-semibold uppercase ${pos.is_active ? 'bg-[#DCFCE7] text-linen-success' : 'bg-linen-surface-2 text-linen-text-muted'}`}>
+                        {pos.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
                   </tr>
                 ))
               )}

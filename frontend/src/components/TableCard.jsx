@@ -5,34 +5,46 @@ export default function TableCard({ table, active, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-2xl border p-4 text-left transition-all ${
+      className={`relative flex w-full flex-col rounded-linen-lg border bg-white p-4 text-left transition-all duration-150 ${
+        occupied ? "border-l-[3px] border-l-linen-amber" : ""
+      } ${
         active
-          ? "border-sky-400 bg-sky-50 shadow"
-          : "border-slate-200 bg-white hover:border-sky-300 hover:bg-slate-50"
+          ? "border-linen-primary"
+          : "border-linen-border hover:border-linen-border-strong"
       }`}
+      style={{ aspectRatio: "1 / 1" }}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Table
-          </p>
-          <h3 className="mt-1 text-2xl font-bold text-slate-900">
-            #{table.table_number}
-          </h3>
-        </div>
-        <span
-          className={`rounded-full px-3 py-1 text-xs font-semibold ${occupied ? "bg-rose-100 text-rose-700" : "bg-emerald-100 text-emerald-700"}`}
-        >
-          {occupied ? "Occupied" : "Available"}
+      <div className="flex w-full items-start justify-between">
+        <span className="text-[10px] font-medium uppercase tracking-[0.07em] text-linen-text-muted">
+          TABLE
+        </span>
+        <span className="text-[10px] font-medium uppercase tracking-[0.07em] text-linen-text-muted">
+          {table.seats} seats
         </span>
       </div>
 
-      <div className="mt-4 text-sm text-slate-600">{table.seats} seats</div>
-      {table.active_order_id && (
-        <div className="mt-2 text-xs font-semibold text-sky-700">
-          Active order attached
-        </div>
-      )}
+      <div className="flex flex-1 items-center justify-center">
+        <h3 className="font-mono text-[40px] font-bold text-linen-text-primary">
+          {table.table_number}
+        </h3>
+      </div>
+
+      <div className="flex flex-col items-start gap-1">
+        <span
+          className={`inline-block rounded-linen-pill px-2.5 py-0.5 text-[11px] font-semibold uppercase ${
+            occupied
+              ? "bg-[#FEF3C7] text-linen-amber"
+              : "bg-[#DCFCE7] text-linen-success"
+          }`}
+        >
+          {occupied ? "Occupied" : "Available"}
+        </span>
+        {table.active_order_id && (
+          <span className="font-mono text-xs font-semibold text-linen-amber">
+            Active order
+          </span>
+        )}
+      </div>
     </button>
   );
 }

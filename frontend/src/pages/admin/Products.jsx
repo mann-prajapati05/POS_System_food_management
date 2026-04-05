@@ -7,6 +7,9 @@ import { getAllCategories } from '../../services/categoryService';
 import { deleteProduct, getAllProducts, updateProduct, createProduct } from '../../services/productService';
 import { listPos } from '../../services/adminService';
 
+const btnNav = "h-9 rounded-linen border border-linen-border px-4 text-[13px] font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2";
+const selectClass = "mt-1.5 h-10 w-full rounded-linen border border-linen-border bg-white px-3 text-sm outline-none transition-colors focus:border-linen-primary";
+
 export default function Products() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -141,68 +144,47 @@ export default function Products() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10">
+    <main className="min-h-screen bg-linen-bg px-4 py-8 animate-fade-in">
       <section className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <header className="rounded-linen-lg border border-linen-border bg-white p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Admin Catalog</p>
-              <h1 className="mt-2 text-3xl font-bold text-slate-900">Product Management</h1>
-              <p className="mt-1 text-sm text-slate-500">Manage POS products with category and search filters.</p>
+              <p className="text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-muted">Admin Catalog</p>
+              <h1 className="mt-2 text-2xl font-semibold text-linen-text-primary">Product Management</h1>
+              <p className="mt-1 text-sm text-linen-text-secondary">Manage POS products with category and search filters.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link to="/dashboard" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Console</Link>
-              <Link to="/admin/categories" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Categories</Link>
-              <button type="button" onClick={openCreate} disabled={submitting} className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-4 py-2 text-sm font-semibold text-white disabled:opacity-70">Create Product</button>
+              <Link to="/dashboard" className={btnNav}>Console</Link>
+              <Link to="/admin/categories" className={btnNav}>Categories</Link>
+              <button type="button" onClick={openCreate} disabled={submitting} className="h-9 rounded-linen bg-linen-primary px-4 text-[13px] font-medium text-white transition-colors hover:bg-linen-primary-hover disabled:opacity-70">Create Product</button>
             </div>
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <label className="block text-sm font-semibold text-slate-700">
+            <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">
               POS
-              <select
-                value={selectedPosId}
-                onChange={async (e) => {
-                  const posId = e.target.value;
-                  setSelectedPosId(posId);
-                  await load(posId);
-                }}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-              >
-                {posList.map((pos) => (
-                  <option key={pos.id} value={pos.id}>{pos.name}</option>
-                ))}
+              <select value={selectedPosId} onChange={async (e) => { const posId = e.target.value; setSelectedPosId(posId); await load(posId); }} className={selectClass}>
+                {posList.map((pos) => (<option key={pos.id} value={pos.id}>{pos.name}</option>))}
               </select>
             </label>
 
-            <label className="block text-sm font-semibold text-slate-700">
+            <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">
               Filter by Category
-              <select
-                value={selectedCategoryFilter}
-                onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-              >
+              <select value={selectedCategoryFilter} onChange={(e) => setSelectedCategoryFilter(e.target.value)} className={selectClass}>
                 <option value="">All categories</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>{category.name}</option>
-                ))}
+                {categories.map((category) => (<option key={category.id} value={category.id}>{category.name}</option>))}
               </select>
             </label>
 
-            <label className="block text-sm font-semibold text-slate-700">
+            <label className="block text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-secondary">
               Search
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-              />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name" className="mt-1.5 h-10 w-full rounded-linen border border-linen-border bg-white px-3 text-sm outline-none transition-colors placeholder:text-linen-text-muted focus:border-linen-primary" />
             </label>
           </div>
         </header>
 
         {loading ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">Loading products...</div>
+          <div className="rounded-linen-lg border border-linen-border bg-white p-6 text-sm text-linen-text-secondary">Loading products...</div>
         ) : (
           <ProductTable products={filteredProducts} onEdit={openEdit} onDelete={handleDelete} onToggleStatus={handleToggleStatus} />
         )}

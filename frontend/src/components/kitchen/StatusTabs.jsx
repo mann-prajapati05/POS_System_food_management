@@ -13,14 +13,14 @@ export default function StatusTabs({ activeTab, counts, onChange }) {
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={`rounded-xl border px-4 py-2 text-sm font-semibold transition-all ${
+          className={`rounded-linen border px-4 py-2 text-[13px] font-medium transition-all ${
             activeTab === tab.id
-              ? "border-sky-300 bg-sky-50 text-sky-700"
-              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+              ? "border-white/20 bg-white/10 text-white"
+              : "border-[#2A2A2A] bg-[#1A1A1A] text-[#888888] hover:bg-[#222222] hover:text-[#CCCCCC]"
           }`}
         >
           {tab.label}
-          <span className="ml-2 rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+          <span className="ml-2 rounded-linen-sm bg-white/10 px-1.5 py-0.5 font-mono text-[11px]">
             {counts[tab.id] || 0}
           </span>
         </button>

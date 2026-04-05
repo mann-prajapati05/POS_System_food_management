@@ -2,29 +2,31 @@ import { NavLink } from "react-router-dom";
 
 function navLinkClass({ isActive }) {
   const base =
-    "rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200";
+    "rounded-linen px-4 py-2 text-[13px] font-medium transition-all duration-150";
   return isActive
-    ? `${base} bg-sky-100 text-sky-700 shadow-sm`
-    : `${base} text-slate-600 hover:bg-slate-100 hover:text-slate-800`;
+    ? `${base} bg-linen-surface-2 text-linen-text-primary`
+    : `${base} text-linen-text-secondary hover:bg-linen-bg hover:text-linen-text-primary`;
 }
 
 export default function Navbar({ posName, userName, onLogout }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-20 h-14 border-b border-linen-border bg-white">
+      <div className="mx-auto flex h-full w-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-sky-500 to-emerald-500 text-lg font-bold text-white shadow-sm">
-            P
+          <div className="flex h-9 w-9 items-center justify-center rounded-linen bg-linen-primary font-mono text-[13px] font-semibold text-white">
+            POS
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Multi POS
+            <p className="text-[15px] font-semibold text-linen-text-primary">
+              Odoo POS Cafe
             </p>
-            <p className="text-sm font-bold text-slate-800">{posName}</p>
+            <p className="text-[11px] font-medium uppercase tracking-[0.07em] text-linen-text-muted">
+              {posName}
+            </p>
           </div>
         </div>
 
-        <nav className="hidden items-center gap-2 md:flex">
+        <nav className="hidden items-center gap-1 md:flex">
           <NavLink to="/pos" className={navLinkClass}>
             Orders
           </NavLink>
@@ -38,13 +40,13 @@ export default function Navbar({ posName, userName, onLogout }) {
 
         <div className="flex items-center gap-3">
           <div className="hidden text-right sm:block">
-            <p className="text-xs text-slate-400">Signed in as</p>
-            <p className="text-sm font-semibold text-slate-700">{userName}</p>
+            <p className="text-[11px] uppercase tracking-[0.07em] text-linen-text-muted">Signed in as</p>
+            <p className="text-[13px] font-medium text-linen-text-primary">{userName}</p>
           </div>
           <button
             type="button"
             onClick={onLogout}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50"
+            className="h-9 rounded-linen border border-linen-border bg-white px-4 text-[13px] font-medium text-linen-text-primary transition-colors hover:border-linen-border-strong hover:bg-linen-surface-2"
           >
             Logout
           </button>

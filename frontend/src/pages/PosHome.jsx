@@ -132,7 +132,7 @@ export default function PosHome() {
   }, [session, isActive]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-linen-bg animate-fade-in">
       <Navbar
         posName={getPosName(user)}
         userName={getDisplayName(user)}
@@ -141,19 +141,19 @@ export default function PosHome() {
 
       <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {loading ? (
-          <div className="grid place-items-center rounded-3xl border border-slate-200 bg-white p-16 shadow-sm">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-sky-500" />
-            <p className="mt-3 text-sm text-slate-500">
+          <div className="grid place-items-center rounded-linen-lg border border-linen-border bg-white p-16">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-linen-border border-t-linen-primary" />
+            <p className="mt-3 text-sm text-linen-text-secondary">
               Loading session dashboard...
             </p>
           </div>
         ) : (
           <>
-            <section className="mb-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h1 className="text-2xl font-bold text-slate-900">
+            <section className="mb-6 rounded-linen-lg border border-linen-border bg-white p-6">
+              <h1 className="text-xl font-semibold text-linen-text-primary">
                 {stats.headline}
               </h1>
-              <p className="mt-2 text-slate-600">{stats.text}</p>
+              <p className="mt-2 text-sm text-linen-text-secondary">{stats.text}</p>
             </section>
 
             <PosCard
