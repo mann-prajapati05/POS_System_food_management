@@ -62,6 +62,8 @@ export default function AdminHome() {
           <div className="flex flex-wrap gap-2">
             <Link to="/admin/analytics" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Analytics</Link>
             <Link to="/admin/realtime-orders" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Real-time Orders</Link>
+            <Link to="/admin/categories" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Categories</Link>
+            <Link to="/admin/products" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Products</Link>
             <Link to="/admin/floors-tables" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Floors & Tables</Link>
             <Link to="/admin/pos" className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">Open POS</Link>
             <button

@@ -127,24 +127,16 @@ export default function PosTerminal() {
       if (table.active_order_id) {
         await reloadOrder(table.active_order_id);
       } else {
-        try {
-          const order = await createOrder({ tableId: table.id });
-          await reloadOrder(order.id);
-          await loadFloors();
-        } catch (error) {
-          if (error?.response?.status === 409) {
-            await loadFloors();
-            const floor = floors.find((f) => f.id === (selectedFloor?.id || selectedFloorId));
-            const reloadedTable = floor?.tables?.find((t) => t.id === table.id);
-            if (reloadedTable?.active_order_id) {
-              await reloadOrder(reloadedTable.active_order_id);
-            } else {
-              throw error;
-            }
-          } else {
-            throw error;
-          }
-        }
+        // Do not create order on table click; create it only when first item is added.
+        setActiveOrder({
+          id: null,
+          table_id: table.id,
+          table_number: table.table_number,
+          status: 'draft',
+          total_price: 0,
+          items: [],
+        });
+        setCartItems([]);
       }
 
       setTab('register');
@@ -157,12 +149,20 @@ export default function PosTerminal() {
   };
 
   const handleAddProduct = async (product) => {
-    if (!activeOrder?.id) return;
+    if (!activeOrder) return;
 
     setBusy(true);
     try {
-      await addOrderItem(activeOrder.id, { productId: product.id, quantity: 1 });
-      await reloadOrder(activeOrder.id);
+      let orderId = activeOrder.id;
+
+      if (!orderId) {
+        const created = await createOrder({ tableId: activeOrder.table_id });
+        orderId = created.id;
+      }
+
+      await addOrderItem(orderId, { productId: product.id, quantity: 1 });
+      await reloadOrder(orderId);
+      await loadFloors();
       await loadOrders(session?.id);
     } catch (error) {
       toast.error(error?.response?.data?.error || 'Failed to add item');

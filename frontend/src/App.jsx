@@ -11,6 +11,8 @@ import AdminAnalytics from './pages/AdminAnalytics';
 import AdminRealtimeOrders from './pages/AdminRealtimeOrders';
 import AdminPos from './pages/AdminPos';
 import AdminFloorsTables from './pages/AdminFloorsTables';
+import Categories from './pages/admin/Categories';
+import Products from './pages/admin/Products';
 import useAuthStore from './store/authStore';
 
 function defaultRouteForRole(role) {
@@ -168,6 +170,24 @@ export default function App() {
           element={(
             <ProtectedRoute allowedRoles={['admin']}>
               <AdminFloorsTables />
+            </ProtectedRoute>
+          )}
+        />
+
+        <Route
+          path="/admin/categories"
+          element={(
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Categories />
+            </ProtectedRoute>
+          )}
+        />
+
+        <Route
+          path="/admin/products"
+          element={(
+            <ProtectedRoute allowedRoles={['admin']}>
+              <Products />
             </ProtectedRoute>
           )}
         />
