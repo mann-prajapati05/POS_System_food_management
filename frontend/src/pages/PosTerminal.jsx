@@ -15,7 +15,12 @@ import {
   sendOrderToKitchen,
   updateOrderItem,
 } from '../services/orderService';
-import { processOrderPayment } from '../services/paymentService';
+import {
+  createRazorpayOrder,
+  ensureRazorpayLoaded,
+  processOrderPayment,
+  verifyRazorpayPayment,
+} from '../services/paymentService';
 import { closeSession, getActiveSession } from '../services/sessionService';
 import { getFloorsAndTables } from '../services/tableService';
 
@@ -240,7 +245,78 @@ export default function PosTerminal() {
     if (!activeOrder?.id) return;
     setPaying(true);
     try {
-      const result = await processOrderPayment(activeOrder.id, payload);
+      let result;
+
+      if (payload.method === 'cash') {
+        // Force exact total for cash to avoid manual amount mismatch failures.
+        result = await processOrderPayment(activeOrder.id, {
+          method: 'cash',
+          amount: Number(activeOrder.total_price || 0),
+        });
+      } else {
+        await ensureRazorpayLoaded();
+
+        const razorOrder = await createRazorpayOrder({
+          order_id: activeOrder.id,
+          amount: Number(payload.amount || 0),
+          payment_type: payload.method,
+        });
+
+        const checkoutResponse = await new Promise((resolve, reject) => {
+          const key = razorOrder.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID;
+          if (!key) {
+            reject(new Error('Razorpay key is missing'));
+            return;
+          }
+
+          const options = {
+            key,
+            amount: razorOrder.amount,
+            currency: razorOrder.currency || 'INR',
+            name: 'Odoo POS',
+            description: `Order ${String(activeOrder.id || '').slice(0, 8)}`,
+            order_id: razorOrder.razorpay_order_id,
+            method: payload.method === 'upi'
+              ? {
+                upi: true,
+                card: false,
+                netbanking: false,
+                wallet: false,
+                paylater: false,
+                emi: false,
+              }
+              : {
+                upi: false,
+                card: true,
+                netbanking: true,
+                wallet: true,
+                paylater: false,
+                emi: false,
+              },
+            prefill: {
+              name: user?.name || undefined,
+              email: user?.email || undefined,
+            },
+            modal: {
+              ondismiss: () => reject(new Error('Payment cancelled by user')),
+            },
+            handler: (response) => resolve(response),
+          };
+
+          const checkout = new window.Razorpay(options);
+          checkout.on('payment.failed', (response) => {
+            reject(new Error(response?.error?.description || 'Razorpay payment failed'));
+          });
+          checkout.open();
+        });
+
+        result = await verifyRazorpayPayment({
+          razorpay_order_id: checkoutResponse.razorpay_order_id,
+          razorpay_payment_id: checkoutResponse.razorpay_payment_id,
+          razorpay_signature: checkoutResponse.razorpay_signature,
+        });
+      }
+
       setActiveOrder((prev) => ({ ...prev, ...(result.order || {}) }));
       toast.success('Payment completed');
       await Promise.all([loadOrders(session?.id), loadFloors()]);
@@ -250,7 +326,7 @@ export default function PosTerminal() {
       setActiveOrder(null);
       setCartItems([]);
     } catch (error) {
-      toast.error(error?.response?.data?.error || 'Payment failed');
+      toast.error(error?.response?.data?.error || error?.message || 'Payment failed. Please retry.');
     } finally {
       setPaying(false);
     }

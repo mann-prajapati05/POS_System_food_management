@@ -15,9 +15,9 @@ export default function PaymentPanel({
   const total = Number(order?.total_price || 0);
   const [method, setMethod] = useState("cash");
   const [amount, setAmount] = useState(total.toFixed(2));
-  const [upiReference, setUpiReference] = useState("");
 
   const amountNumber = Number(amount || 0);
+  const isRazorpayMethod = method === "card" || method === "upi";
   const change = useMemo(
     () => Math.max(0, amountNumber - total),
     [amountNumber, total],
@@ -42,7 +42,12 @@ export default function PaymentPanel({
           <button
             key={option.value}
             type="button"
-            onClick={() => setMethod(option.value)}
+            onClick={() => {
+              setMethod(option.value);
+              if (option.value === "card" || option.value === "upi") {
+                setAmount(total.toFixed(2));
+              }
+            }}
             className={`rounded-xl border px-3 py-2 text-sm font-semibold ${method === option.value ? "border-sky-300 bg-sky-50 text-sky-700" : "border-slate-200 text-slate-700 hover:bg-slate-100"}`}
           >
             {option.label}
@@ -58,8 +63,9 @@ export default function PaymentPanel({
             min={0}
             step="0.01"
             value={amount}
+            readOnly={isRazorpayMethod}
             onChange={(e) => setAmount(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100 read-only:bg-slate-100"
           />
         </label>
 
@@ -72,15 +78,9 @@ export default function PaymentPanel({
       </div>
 
       {method === "upi" && (
-        <label className="mt-4 block text-sm font-semibold text-slate-700">
-          UPI Reference
-          <input
-            value={upiReference}
-            onChange={(e) => setUpiReference(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 outline-none focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-            placeholder="UPI transaction reference"
-          />
-        </label>
+        <p className="mt-4 text-sm text-slate-600">
+          UPI QR / app intent will open in Razorpay Checkout.
+        </p>
       )}
 
       <div className="mt-6 flex flex-wrap gap-3">
@@ -91,12 +91,11 @@ export default function PaymentPanel({
             onConfirm({
               method,
               amount: Number(amount || 0),
-              upiReference: upiReference || undefined,
             })
           }
           className="rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 px-5 py-2 text-sm font-semibold text-white disabled:opacity-70"
         >
-          {processing ? "Processing..." : "Pay Now"}
+          {processing ? "Processing..." : isRazorpayMethod ? "Pay with Razorpay" : "Pay Now"}
         </button>
         <button
           type="button"
