@@ -307,9 +307,9 @@ export async function addOrderItem(req, res) {
       await rollbackTransaction(client);
       return res.status(404).json({ error: 'Order not found' });
     }
-    if (!['draft', 'pending'].includes(orderRes.rows[0].status)) {
+    if (!['draft', 'pending', 'to_cook', 'preparing'].includes(orderRes.rows[0].status)) {
       await rollbackTransaction(client);
-      return res.status(409).json({ error: 'Cannot modify items for current order state' });
+      return res.status(409).json({ error: 'Cannot add items for current order state' });
     }
 
     const productRes = await client.query(
@@ -386,9 +386,26 @@ export async function updateOrderItem(req, res) {
       await rollbackTransaction(client);
       return res.status(404).json({ error: 'Order not found' });
     }
-    if (!['draft', 'pending'].includes(orderRes.rows[0].status)) {
+    if (!['draft', 'pending', 'to_cook', 'preparing'].includes(orderRes.rows[0].status)) {
       await rollbackTransaction(client);
       return res.status(409).json({ error: 'Cannot modify items for current order state' });
+    }
+
+    const existingItemRes = await client.query(
+      'SELECT id, quantity FROM order_items WHERE id = $1 AND order_id = $2',
+      [itemId, orderId]
+    );
+
+    if (!existingItemRes.rows[0]) {
+      await rollbackTransaction(client);
+      return res.status(404).json({ error: 'Order item not found' });
+    }
+
+    const currentQuantity = Number(existingItemRes.rows[0].quantity || 0);
+    const isKitchenSent = ['to_cook', 'preparing'].includes(orderRes.rows[0].status);
+    if (isKitchenSent && quantity < currentQuantity) {
+      await rollbackTransaction(client);
+      return res.status(409).json({ error: 'Cannot decrease quantity after order is sent to kitchen' });
     }
 
     const itemRes = await client.query(
@@ -435,7 +452,7 @@ export async function removeOrderItem(req, res) {
     }
     if (!['draft', 'pending'].includes(orderRes.rows[0].status)) {
       await rollbackTransaction(client);
-      return res.status(409).json({ error: 'Cannot modify items for current order state' });
+      return res.status(409).json({ error: 'Cannot remove items after order is sent to kitchen' });
     }
 
     const deleted = await client.query(

@@ -30,6 +30,9 @@ export default function OrderScreen({
   const subtotal = orderTotal(items);
   const discount = 0;
   const finalAmount = Math.max(0, subtotal - discount);
+  const canAddOrIncrease = ['draft', 'pending', 'to_cook', 'preparing'].includes(order?.status);
+  const canDecreaseOrRemove = ['draft', 'pending'].includes(order?.status);
+  const canSendToKitchen = ['draft', 'pending'].includes(order?.status);
 
   return (
     <section className="grid gap-4 xl:grid-cols-[1.1fr_1.3fr_0.9fr]">
@@ -57,7 +60,7 @@ export default function OrderScreen({
 
         <section className="grid gap-3 sm:grid-cols-2">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} onAdd={onAddItem} />
+            <ProductCard key={product.id} product={product} onAdd={onAddItem} disabled={!canAddOrIncrease || busy} />
           ))}
           {products.length === 0 && (
             <p className="text-sm text-slate-500">
@@ -72,6 +75,7 @@ export default function OrderScreen({
         onIncrease={onIncreaseQty}
         onDecrease={onDecreaseQty}
         onRemove={onRemoveItem}
+        disableDecreaseRemove={!canDecreaseOrRemove || busy}
       />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -79,6 +83,11 @@ export default function OrderScreen({
         <p className="mt-1 text-xs text-slate-500">
           Order #{String(order?.id || "").slice(0, 8)}
         </p>
+        {!canDecreaseOrRemove && (
+          <p className="mt-2 text-xs font-medium text-amber-700">
+            Order already sent to kitchen. You can add or increase items, but cannot decrease or remove.
+          </p>
+        )}
 
         <div className="mt-4 space-y-2 text-sm">
           <div className="flex justify-between text-slate-600">
@@ -98,7 +107,7 @@ export default function OrderScreen({
         <div className="mt-6 space-y-2">
           <button
             type="button"
-            disabled={busy || items.length === 0}
+            disabled={busy || items.length === 0 || !canSendToKitchen}
             onClick={onSendKitchen}
             className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
           >
