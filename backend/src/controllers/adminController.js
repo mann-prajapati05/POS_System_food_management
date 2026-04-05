@@ -1,4 +1,6 @@
 import bcrypt from 'bcrypt';
+import { unlink } from 'fs/promises';
+import path from 'path';
 import { query } from '../config/db.js';
 
 const USER_ROLES = new Set(['staff', 'kitchen', 'admin']);
@@ -35,6 +37,48 @@ function parseBoolean(value, defaultValue = null) {
   if (value === true || value === 'true' || value === '1') return true;
   if (value === false || value === 'false' || value === '0') return false;
   return null;
+}
+
+function normalizeImagePath(value) {
+  if (value === undefined || value === null || String(value).trim() === '') return null;
+  const raw = String(value).trim();
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith('/uploads/')) return raw;
+  return null;
+}
+
+function buildProductImagePath(req) {
+  if (req.file?.filename) {
+    return `/uploads/products/${req.file.filename}`;
+  }
+
+  return normalizeImagePath(
+    req.body?.image_path ?? req.body?.imagePath ?? req.body?.image_url ?? req.body?.imageUrl ?? req.body?.image
+  );
+}
+
+function isLocalProductUploadPath(imagePath) {
+  return typeof imagePath === 'string' && imagePath.startsWith('/uploads/products/');
+}
+
+async function removeProductImageIfExists(imagePath) {
+  if (!isLocalProductUploadPath(imagePath)) return;
+  try {
+    const relative = imagePath.replace(/^\/+/, '');
+    const fullPath = path.resolve(process.cwd(), relative);
+    await unlink(fullPath);
+  } catch {
+    // Ignore missing file/unlink errors to avoid blocking product changes.
+  }
+}
+
+async function removeUploadedFileIfExists(file) {
+  if (!file?.path) return;
+  try {
+    await unlink(file.path);
+  } catch {
+    // Ignore cleanup failures.
+  }
 }
 
 async function usersHasPosIdColumn() {
@@ -569,42 +613,50 @@ export async function createProduct(req, res) {
   try {
     const scope = await resolveAdminPosScope(req, req.body.posId);
     if (scope.error) {
+      await removeUploadedFileIfExists(req.file);
       return res.status(scope.status).json({ error: scope.error });
     }
     const { name, categoryId, price, description, isAvailable } = req.body;
+    const imagePath = buildProductImagePath(req);
 
     if (!name || !categoryId || price === undefined) {
+      await removeUploadedFileIfExists(req.file);
       return res.status(400).json({ error: 'name, categoryId and price are required' });
     }
 
     if (!isUuid(categoryId)) {
+      await removeUploadedFileIfExists(req.file);
       return res.status(400).json({ error: 'categoryId must be a valid UUID' });
     }
 
     const parsedPrice = Number(price);
     if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      await removeUploadedFileIfExists(req.file);
       return res.status(400).json({ error: 'price must be a positive number' });
     }
 
     const category = await query('SELECT id FROM categories WHERE id = $1 AND pos_id = $2', [categoryId, scope.selectedPosId]);
     if (!category.rows[0]) {
+      await removeUploadedFileIfExists(req.file);
       return res.status(404).json({ error: 'Category not found' });
     }
 
     const available = isAvailable === undefined ? true : parseBoolean(isAvailable);
     if (available === null) {
+      await removeUploadedFileIfExists(req.file);
       return res.status(400).json({ error: 'isAvailable must be true or false' });
     }
 
     const result = await query(
-      `INSERT INTO products (name, category_id, price, description, is_available, pos_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, name, category_id, price, description, is_available, pos_id, created_at, updated_at`,
-      [String(name).trim(), categoryId, parsedPrice, description || null, available, scope.selectedPosId]
+      `INSERT INTO products (name, category_id, price, image_path, description, is_available, pos_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, name, category_id, price, image_path, image_path AS image_url, description, is_available, pos_id, created_at, updated_at`,
+      [String(name).trim(), categoryId, parsedPrice, imagePath, description || null, available, scope.selectedPosId]
     );
 
     return res.status(201).json({ product: result.rows[0] });
   } catch (err) {
+    await removeUploadedFileIfExists(req.file);
     return res.status(500).json({ error: 'Failed to create product' });
   }
 }
@@ -648,6 +700,8 @@ export async function listProducts(req, res) {
          p.category_id,
          c.name AS category_name,
          p.price,
+         p.image_path,
+         p.image_path AS image_url,
          p.description,
          p.is_available,
          p.created_at,
@@ -669,13 +723,25 @@ export async function updateProduct(req, res) {
   try {
     const scope = await resolveAdminPosScope(req, req.body.posId);
     if (scope.error) {
+      await removeUploadedFileIfExists(req.file);
       return res.status(scope.status).json({ error: scope.error });
     }
     const { productId } = req.params;
     const { name, categoryId, price, description, isAvailable } = req.body;
 
     if (!isUuid(productId)) {
+      await removeUploadedFileIfExists(req.file);
       return res.status(400).json({ error: 'productId must be a valid UUID' });
+    }
+
+    const existingRes = await query(
+      'SELECT id, image_path FROM products WHERE id = $1 AND pos_id = ANY($2::uuid[])',
+      [productId, scope.posIds]
+    );
+    const existing = existingRes.rows[0];
+    if (!existing) {
+      await removeUploadedFileIfExists(req.file);
+      return res.status(404).json({ error: 'Product not found' });
     }
 
     const updates = [];
@@ -683,6 +749,7 @@ export async function updateProduct(req, res) {
 
     if (name !== undefined) {
       if (!String(name).trim()) {
+        await removeUploadedFileIfExists(req.file);
         return res.status(400).json({ error: 'name cannot be empty' });
       }
       values.push(String(name).trim());
@@ -691,10 +758,12 @@ export async function updateProduct(req, res) {
 
     if (categoryId !== undefined) {
       if (!isUuid(categoryId)) {
+        await removeUploadedFileIfExists(req.file);
         return res.status(400).json({ error: 'categoryId must be a valid UUID' });
       }
       const category = await query('SELECT id FROM categories WHERE id = $1 AND pos_id = ANY($2::uuid[])', [categoryId, scope.posIds]);
       if (!category.rows[0]) {
+        await removeUploadedFileIfExists(req.file);
         return res.status(404).json({ error: 'Category not found' });
       }
       values.push(categoryId);
@@ -704,6 +773,7 @@ export async function updateProduct(req, res) {
     if (price !== undefined) {
       const parsedPrice = Number(price);
       if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+        await removeUploadedFileIfExists(req.file);
         return res.status(400).json({ error: 'price must be a positive number' });
       }
       values.push(parsedPrice);
@@ -715,9 +785,16 @@ export async function updateProduct(req, res) {
       updates.push(`description = $${values.length}`);
     }
 
+    const uploadedImagePath = req.file ? buildProductImagePath(req) : null;
+    if (uploadedImagePath) {
+      values.push(uploadedImagePath);
+      updates.push(`image_path = $${values.length}`);
+    }
+
     if (isAvailable !== undefined) {
       const parsed = parseBoolean(isAvailable);
       if (parsed === null) {
+        await removeUploadedFileIfExists(req.file);
         return res.status(400).json({ error: 'isAvailable must be true or false' });
       }
       values.push(parsed);
@@ -725,6 +802,7 @@ export async function updateProduct(req, res) {
     }
 
     if (updates.length === 0) {
+      await removeUploadedFileIfExists(req.file);
       return res.status(400).json({ error: 'No valid fields provided for update' });
     }
 
@@ -735,16 +813,22 @@ export async function updateProduct(req, res) {
       `UPDATE products
        SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
        WHERE id = $${values.length - 1} AND pos_id = ANY($${values.length}::uuid[])
-       RETURNING id, name, category_id, price, description, is_available, pos_id, created_at, updated_at`,
+       RETURNING id, name, category_id, price, image_path, image_path AS image_url, description, is_available, pos_id, created_at, updated_at`,
       values
     );
 
     if (!result.rows[0]) {
+      await removeUploadedFileIfExists(req.file);
       return res.status(404).json({ error: 'Product not found' });
+    }
+
+    if (uploadedImagePath && existing.image_path && existing.image_path !== uploadedImagePath) {
+      await removeProductImageIfExists(existing.image_path);
     }
 
     return res.status(200).json({ product: result.rows[0] });
   } catch (err) {
+    await removeUploadedFileIfExists(req.file);
     return res.status(500).json({ error: 'Failed to update product' });
   }
 }
@@ -810,7 +894,7 @@ export async function deleteProduct(req, res) {
         `UPDATE products
          SET is_available = false, updated_at = CURRENT_TIMESTAMP
          WHERE id = $1 AND pos_id = ANY($2::uuid[])
-         RETURNING id, name, is_available, pos_id`,
+         RETURNING id, name, image_path, image_path AS image_url, is_available, pos_id`,
         [productId, scope.posIds]
       );
 
@@ -825,13 +909,15 @@ export async function deleteProduct(req, res) {
     }
 
     const result = await query(
-      'DELETE FROM products WHERE id = $1 AND pos_id = ANY($2::uuid[]) RETURNING id, name, pos_id',
+      'DELETE FROM products WHERE id = $1 AND pos_id = ANY($2::uuid[]) RETURNING id, name, image_path, image_path AS image_url, pos_id',
       [productId, scope.posIds]
     );
 
     if (!result.rows[0]) {
       return res.status(404).json({ error: 'Product not found' });
     }
+
+    await removeProductImageIfExists(result.rows[0].image_path);
 
     return res.status(200).json({ message: 'Product deleted successfully', product: result.rows[0] });
   } catch (err) {

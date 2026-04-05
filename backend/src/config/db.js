@@ -93,6 +93,10 @@ async function ensureRazorpayCompatibilitySchema() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_payments_razorpay_payment_id ON payments(razorpay_payment_id);');
 }
 
+async function ensureProductImageSchema() {
+  await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image_path TEXT;');
+}
+
 export async function ensureDatabaseAndSchema() {
   const maintenanceDb = process.env.DB_MAINTENANCE_DB || 'postgres';
   const adminPool = new Pool({
@@ -132,6 +136,7 @@ export async function ensureDatabaseAndSchema() {
     console.log('Schema initialized');
   }
 
+  await ensureProductImageSchema();
   await ensureRazorpayCompatibilitySchema();
 }
 

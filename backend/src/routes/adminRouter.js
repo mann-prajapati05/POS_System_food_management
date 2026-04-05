@@ -1,6 +1,7 @@
 import express from 'express';
 import asyncHandler from '../utils/asyncHandler.js';
 import { requireAuth, attachPOSContext, authorizeRole } from '../middleware/authMiddleware.js';
+import { uploadProductImage } from '../middleware/uploadMiddleware.js';
 import {
   validateRequest,
   validateUuidParam,
@@ -61,9 +62,9 @@ router.get('/categories', validateAdminPosQuery, validateRequest, asyncHandler(l
 router.patch('/categories/:categoryId', validateUuidParam('categoryId'), validateAdminPosBody, validateRequest, asyncHandler(updateCategory));
 router.delete('/categories/:categoryId', validateUuidParam('categoryId'), validateAdminPosQuery, validateRequest, asyncHandler(deleteCategory));
 
-router.post('/products', validateAdminPosBody, validateRequest, asyncHandler(createProduct));
+router.post('/products', uploadProductImage.single('image'), validateAdminPosBody, validateRequest, asyncHandler(createProduct));
 router.get('/products', validateAdminPosQuery, validateRequest, asyncHandler(listProducts));
-router.patch('/products/:productId', validateUuidParam('productId'), validateAdminPosBody, validateRequest, asyncHandler(updateProduct));
+router.patch('/products/:productId', uploadProductImage.single('image'), validateUuidParam('productId'), validateAdminPosBody, validateRequest, asyncHandler(updateProduct));
 router.patch('/products/:productId/availability', validateUuidParam('productId'), validateAdminPosBody, validateRequest, asyncHandler(updateProductAvailability));
 router.delete('/products/:productId', validateUuidParam('productId'), validateAdminPosQuery, validateRequest, asyncHandler(deleteProduct));
 

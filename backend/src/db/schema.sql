@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS products (
   name VARCHAR(255) NOT NULL,
   category_id UUID NOT NULL REFERENCES categories(id) ON DELETE RESTRICT,
   price NUMERIC(10, 2) NOT NULL CHECK (price > 0),
+  image_path TEXT,
   description TEXT,
   is_available BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

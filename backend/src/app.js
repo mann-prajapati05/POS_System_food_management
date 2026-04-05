@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Server as SocketIOServer } from 'socket.io';
 import { closeConnection, ensureDatabaseAndSchema, testConnection, getPoolStatus } from './config/db.js';
 import { initializeSocketIO } from './services/socketEvents.js';
@@ -13,6 +15,9 @@ import kitchenRouter from './routes/kitchenRouter.js';
 import paymentRouter from './routes/paymentRouter.js';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -25,6 +30,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
+app.use('/uploads', express.static(path.resolve(__dirname, '..', 'uploads')));
 
 app.use('/', (req, res, next) => {
   console.log(req.method, req.url);

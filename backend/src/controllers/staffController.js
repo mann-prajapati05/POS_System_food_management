@@ -846,6 +846,8 @@ export async function listProducts(req, res) {
          p.id,
          p.name,
          p.price,
+        p.image_path,
+        p.image_path AS image_url,
          p.description,
          p.category_id,
          c.name AS category_name
