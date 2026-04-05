@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -13,6 +13,7 @@ import AdminPos from './pages/AdminPos';
 import AdminFloorsTables from './pages/AdminFloorsTables';
 import Categories from './pages/admin/Categories';
 import Products from './pages/admin/Products';
+import KitchenDashboard from './pages/KitchenDashboard';
 import useAuthStore from './store/authStore';
 
 function defaultRouteForRole(role) {
@@ -43,33 +44,6 @@ function PublicRoute({ children }) {
   }
 
   return children;
-}
-
-function KitchenPage() {
-  const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
-  const clearAuth = useAuthStore((state) => state.clearAuth);
-
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <section className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-900">Kitchen Dashboard</h1>
-        <p className="mt-2 text-slate-600">
-          Signed in as {user?.name || 'Kitchen User'}. Kitchen board and live tickets can be added here.
-        </p>
-        <button
-          type="button"
-          onClick={() => {
-            clearAuth();
-            navigate('/login', { replace: true });
-          }}
-          className="mt-6 rounded-2xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
-        >
-          Logout
-        </button>
-      </section>
-    </main>
-  );
 }
 
 export default function App() {
@@ -196,7 +170,7 @@ export default function App() {
           path="/kitchen"
           element={(
             <ProtectedRoute allowedRoles={['kitchen']}>
-              <KitchenPage />
+              <KitchenDashboard />
             </ProtectedRoute>
           )}
         />

@@ -4,6 +4,7 @@ import { requireAuth, attachPOSContext, authorizeRole, enforceActiveSession } fr
 import {
   validateRequest,
   validateUuidParam,
+  validateOpenSessionBody,
   validateKitchenStatusBody,
 } from '../middleware/validationMiddleware.js';
 import {
@@ -14,10 +15,14 @@ import {
   markKitchenItemPrepared,
   updateKitchenOrderStatus,
 } from '../controllers/kitchenController.js';
+import { getCurrentSession, openSession } from '../controllers/staffController.js';
 
 const router = express.Router();
 
 router.use(requireAuth, attachPOSContext, authorizeRole('kitchen'));
+
+router.post('/sessions/open', validateOpenSessionBody, validateRequest, asyncHandler(openSession));
+router.get('/sessions/current', asyncHandler(getCurrentSession));
 
 router.get('/orders', asyncHandler(getKitchenOrders));
 router.get('/board', asyncHandler(getKitchenBoard));

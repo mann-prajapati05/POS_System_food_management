@@ -84,12 +84,26 @@ export default function PosHome() {
   const onOpenSession = async () => {
     setOpening(true);
     try {
+      const current = await getActiveSession();
+      if (current?.status === "active") {
+        setSession(current);
+        toast.success("Active session found. Entering current session.");
+        navigate("/pos/terminal", { replace: true });
+        return;
+      }
+
       const created = await openSession({ notes: "Opened from POS dashboard" });
       setSession(created);
       setLastClosingSale(0);
-      toast.success("Session opened successfully");
+      toast.success("New session created.");
       navigate("/pos/terminal", { replace: true });
     } catch (error) {
+      if (error?.response?.status === 409 && error?.response?.data?.session) {
+        setSession(error.response.data.session);
+        toast.success("Active session already exists. Entering current session.");
+        navigate("/pos/terminal", { replace: true });
+        return;
+      }
       toast.error(error?.response?.data?.error || "Unable to open session");
     } finally {
       setOpening(false);

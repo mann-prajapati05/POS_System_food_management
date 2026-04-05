@@ -1,8 +1,12 @@
 import api from './api';
 
-export async function getActiveSession() {
+function getSessionScopePath(scope = 'staff') {
+  return scope === 'kitchen' ? '/kitchen' : '/staff';
+}
+
+export async function getActiveSession(scope = 'staff') {
   try {
-    const { data } = await api.get('/staff/sessions/current');
+    const { data } = await api.get(`${getSessionScopePath(scope)}/sessions/current`);
     return data.session;
   } catch (error) {
     if (error?.response?.status === 404) {
@@ -12,8 +16,8 @@ export async function getActiveSession() {
   }
 }
 
-export async function openSession(payload = {}) {
-  const { data } = await api.post('/staff/sessions/open', payload);
+export async function openSession(payload = {}, scope = 'staff') {
+  const { data } = await api.post(`${getSessionScopePath(scope)}/sessions/open`, payload);
   return data.session;
 }
 

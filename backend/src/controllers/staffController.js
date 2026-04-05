@@ -35,6 +35,30 @@ async function recalculateOrderTotal(client, orderId) {
   );
 }
 
+function parsePreparedQuantityFromNotes(notes) {
+  if (!notes || typeof notes !== 'string') return 0;
+  try {
+    const parsed = JSON.parse(notes);
+    const value = Number(parsed?.preparedQuantity || 0);
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function normalizePreparedQuantity(itemRow) {
+  const quantity = Number(itemRow?.quantity || 0);
+  const parsedPrepared = parsePreparedQuantityFromNotes(itemRow?.notes);
+  const prepared = Math.max(parsedPrepared, itemRow?.is_prepared ? quantity : 0);
+  return Math.min(prepared, quantity);
+}
+
+function serializePreparedQuantity(preparedQuantity) {
+  const safe = Math.max(0, Number(preparedQuantity || 0));
+  if (!safe) return null;
+  return JSON.stringify({ preparedQuantity: safe });
+}
+
 export async function openSession(req, res) {
   try {
     const staffId = req.user.id;
@@ -307,7 +331,7 @@ export async function addOrderItem(req, res) {
       await rollbackTransaction(client);
       return res.status(404).json({ error: 'Order not found' });
     }
-    if (!['draft', 'pending', 'to_cook', 'preparing'].includes(orderRes.rows[0].status)) {
+    if (!['draft', 'pending', 'to_cook', 'preparing', 'completed'].includes(orderRes.rows[0].status)) {
       await rollbackTransaction(client);
       return res.status(409).json({ error: 'Cannot add items for current order state' });
     }
@@ -326,28 +350,42 @@ export async function addOrderItem(req, res) {
     }
 
     const existing = await client.query(
-      'SELECT id, quantity FROM order_items WHERE order_id = $1 AND product_id = $2',
+      'SELECT id, quantity, notes, is_prepared FROM order_items WHERE order_id = $1 AND product_id = $2',
       [orderId, productId]
     );
 
     let item;
     if (existing.rows[0]) {
+      const currentPrepared = normalizePreparedQuantity(existing.rows[0]);
+      const nextQuantity = Number(existing.rows[0].quantity || 0) + quantity;
       const updated = await client.query(
         `UPDATE order_items
-         SET quantity = quantity + $3
+         SET quantity = $3,
+             notes = $4,
+             is_prepared = $5
          WHERE order_id = $1 AND product_id = $2
-         RETURNING id, order_id, product_id, quantity, price_at_time`,
-        [orderId, productId, quantity]
+         RETURNING id, order_id, product_id, quantity, price_at_time, notes, is_prepared`,
+        [orderId, productId, nextQuantity, serializePreparedQuantity(currentPrepared), currentPrepared >= nextQuantity]
       );
       item = updated.rows[0];
     } else {
       const inserted = await client.query(
-        `INSERT INTO order_items (order_id, product_id, quantity, price_at_time)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, order_id, product_id, quantity, price_at_time`,
-        [orderId, productId, quantity, productRes.rows[0].price]
+        `INSERT INTO order_items (order_id, product_id, quantity, price_at_time, notes, is_prepared)
+         VALUES ($1, $2, $3, $4, $5, false)
+         RETURNING id, order_id, product_id, quantity, price_at_time, notes, is_prepared`,
+        [orderId, productId, quantity, productRes.rows[0].price, null]
       );
       item = inserted.rows[0];
+    }
+
+    if (['to_cook', 'preparing', 'completed'].includes(orderRes.rows[0].status)) {
+      await client.query(
+        `UPDATE orders
+         SET status = 'pending',
+             completed_at = NULL
+         WHERE id = $1 AND pos_id = $2`,
+        [orderId, posId]
+      );
     }
 
     await recalculateOrderTotal(client, orderId);
@@ -386,13 +424,13 @@ export async function updateOrderItem(req, res) {
       await rollbackTransaction(client);
       return res.status(404).json({ error: 'Order not found' });
     }
-    if (!['draft', 'pending', 'to_cook', 'preparing'].includes(orderRes.rows[0].status)) {
+    if (!['draft', 'pending', 'to_cook', 'preparing', 'completed'].includes(orderRes.rows[0].status)) {
       await rollbackTransaction(client);
       return res.status(409).json({ error: 'Cannot modify items for current order state' });
     }
 
     const existingItemRes = await client.query(
-      'SELECT id, quantity FROM order_items WHERE id = $1 AND order_id = $2',
+      'SELECT id, quantity, notes, is_prepared FROM order_items WHERE id = $1 AND order_id = $2',
       [itemId, orderId]
     );
 
@@ -402,23 +440,38 @@ export async function updateOrderItem(req, res) {
     }
 
     const currentQuantity = Number(existingItemRes.rows[0].quantity || 0);
-    const isKitchenSent = ['to_cook', 'preparing'].includes(orderRes.rows[0].status);
+    const isKitchenSent = ['to_cook', 'preparing', 'completed'].includes(orderRes.rows[0].status);
     if (isKitchenSent && quantity < currentQuantity) {
       await rollbackTransaction(client);
       return res.status(409).json({ error: 'Cannot decrease quantity after order is sent to kitchen' });
     }
 
+    const currentPrepared = normalizePreparedQuantity(existingItemRes.rows[0]);
+    const nextPrepared = Math.min(currentPrepared, quantity);
+
     const itemRes = await client.query(
       `UPDATE order_items
-       SET quantity = $3
+       SET quantity = $3,
+           notes = $4,
+           is_prepared = $5
        WHERE id = $1 AND order_id = $2
-       RETURNING id, order_id, product_id, quantity, price_at_time`,
-      [itemId, orderId, quantity]
+       RETURNING id, order_id, product_id, quantity, price_at_time, notes, is_prepared`,
+      [itemId, orderId, quantity, serializePreparedQuantity(nextPrepared), nextPrepared >= quantity]
     );
 
     if (!itemRes.rows[0]) {
       await rollbackTransaction(client);
       return res.status(404).json({ error: 'Order item not found' });
+    }
+
+    if (['to_cook', 'preparing', 'completed'].includes(orderRes.rows[0].status)) {
+      await client.query(
+        `UPDATE orders
+         SET status = 'pending',
+             completed_at = NULL
+         WHERE id = $1 AND pos_id = $2`,
+        [orderId, posId]
+      );
     }
 
     await recalculateOrderTotal(client, orderId);
@@ -495,7 +548,7 @@ export async function sendOrderToKitchen(req, res) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    if (!['draft', 'pending'].includes(orderRes.rows[0].status)) {
+    if (!['draft', 'pending', 'to_cook', 'preparing', 'completed'].includes(orderRes.rows[0].status)) {
       await rollbackTransaction(client);
       return res.status(409).json({ error: 'Invalid order state transition' });
     }
@@ -506,17 +559,36 @@ export async function sendOrderToKitchen(req, res) {
       return res.status(400).json({ error: 'Cannot send empty order to kitchen' });
     }
 
+    const rawItemsRes = await client.query(
+      `SELECT id, quantity, notes, is_prepared
+       FROM order_items
+       WHERE order_id = $1`,
+      [orderId]
+    );
+
+    for (const row of rawItemsRes.rows) {
+      const preparedQuantity = normalizePreparedQuantity(row);
+      await client.query(
+        `UPDATE order_items
+         SET notes = $2,
+             is_prepared = $3
+         WHERE id = $1`,
+        [row.id, serializePreparedQuantity(preparedQuantity), preparedQuantity >= Number(row.quantity || 0)]
+      );
+    }
+
     const updated = await client.query(
       `UPDATE orders
        SET status = 'to_cook',
-           started_at = CURRENT_TIMESTAMP
+           started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
+           completed_at = NULL
        WHERE id = $1 AND pos_id = $2
        RETURNING id, status, started_at`,
       [orderId, posId]
     );
 
     const itemsRes = await client.query(
-      `SELECT oi.id, oi.product_id, p.name AS product_name, oi.quantity, oi.price_at_time
+      `SELECT oi.id, oi.product_id, p.name AS product_name, oi.quantity, oi.price_at_time, oi.notes, oi.is_prepared
        FROM order_items oi
        INNER JOIN products p ON p.id = oi.product_id
        WHERE oi.order_id = $1`,
@@ -526,7 +598,16 @@ export async function sendOrderToKitchen(req, res) {
     await commitTransaction(client);
 
     if (orderSessionRes.rows[0]) {
-      emitOrderSentToKitchen(orderId, orderSessionRes.rows[0].session_id, itemsRes.rows);
+      const normalizedItems = itemsRes.rows.map((row) => {
+        const preparedQuantity = normalizePreparedQuantity(row);
+        return {
+          ...row,
+          quantity_prepared: preparedQuantity,
+          quantity_pending: Math.max(0, Number(row.quantity || 0) - preparedQuantity),
+          is_prepared: preparedQuantity >= Number(row.quantity || 0),
+        };
+      });
+      emitOrderSentToKitchen(orderId, orderSessionRes.rows[0].session_id, normalizedItems);
     }
     return res.status(200).json({ order: updated.rows[0] });
   } catch (err) {
@@ -809,10 +890,19 @@ export async function getOrderDetails(req, res) {
       [orderId]
     );
 
+    const normalizedItems = itemsRes.rows.map((row) => {
+      const preparedQuantity = normalizePreparedQuantity(row);
+      return {
+        ...row,
+        quantity_prepared: preparedQuantity,
+        quantity_pending: Math.max(0, Number(row.quantity || 0) - preparedQuantity),
+      };
+    });
+
     return res.status(200).json({
       order: {
         ...orderRes.rows[0],
-        items: itemsRes.rows,
+        items: normalizedItems,
       },
     });
   } catch (err) {

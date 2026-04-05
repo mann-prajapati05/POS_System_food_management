@@ -33,16 +33,69 @@ function normalizeStatuses(statusParam) {
   return [...new Set(statuses)];
 }
 
+function parsePreparedQuantityFromNotes(notes) {
+  if (!notes || typeof notes !== 'string') return 0;
+  try {
+    const parsed = JSON.parse(notes);
+    const value = Number(parsed?.preparedQuantity || 0);
+    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function normalizeItemPreparedQuantity(item) {
+  const quantity = Number(item?.quantity || 0);
+  const parsedPrepared = parsePreparedQuantityFromNotes(item?.notes);
+  const prepared = Math.max(parsedPrepared, item?.isPrepared ? quantity : 0);
+  return Math.min(prepared, quantity);
+}
+
+function normalizeKitchenOrders(rows) {
+  return rows.map((order) => {
+    const items = (order.items || []).map((item) => {
+      const quantityPrepared = normalizeItemPreparedQuantity(item);
+      const quantity = Number(item.quantity || 0);
+      return {
+        ...item,
+        quantityPrepared,
+        quantityPending: Math.max(0, quantity - quantityPrepared),
+        isPrepared: quantityPrepared >= quantity,
+      };
+    });
+
+    const totalItems = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const preparedItems = items.reduce((sum, item) => sum + Number(item.quantityPrepared || 0), 0);
+
+    return {
+      ...order,
+      items,
+      total_items: totalItems,
+      prepared_items: preparedItems,
+    };
+  });
+}
+
 async function getOrderProgress(client, orderId) {
   const progressRes = await client.query(
-    `SELECT
-       COUNT(*)::int AS total_items,
-       COUNT(*) FILTER (WHERE is_prepared = true)::int AS prepared_items
+    `SELECT quantity, is_prepared, notes
      FROM order_items
      WHERE order_id = $1`,
     [orderId]
   );
-  return progressRes.rows[0];
+
+  const progress = progressRes.rows.reduce((acc, row) => {
+    const quantity = Number(row.quantity || 0);
+    const prepared = Math.min(
+      quantity,
+      Math.max(parsePreparedQuantityFromNotes(row.notes), row.is_prepared ? quantity : 0)
+    );
+    acc.total_items += quantity;
+    acc.prepared_items += prepared;
+    return acc;
+  }, { total_items: 0, prepared_items: 0 });
+
+  return progress;
 }
 
 export async function getKitchenOrders(req, res) {
@@ -84,8 +137,10 @@ export async function getKitchenOrders(req, res) {
                'itemId', oi.id,
                'productId', oi.product_id,
                'name', p.name,
+               'categoryName', c.name,
                'quantity', oi.quantity,
                'isPrepared', oi.is_prepared,
+               'notes', oi.notes,
                'preparedAt', oi.prepared_at,
                'preparedBy', oi.prepared_by
              )
@@ -101,6 +156,7 @@ export async function getKitchenOrders(req, res) {
        LEFT JOIN users ku ON ku.id = o.assigned_kitchen_user
        LEFT JOIN order_items oi ON oi.order_id = o.id
        LEFT JOIN products p ON p.id = oi.product_id
+      LEFT JOIN categories c ON c.id = p.category_id
        WHERE ${where.join(' AND ')}
        GROUP BY o.id, ku.name, t.table_number, f.name
        ORDER BY
@@ -109,7 +165,7 @@ export async function getKitchenOrders(req, res) {
       values
     );
 
-    return res.status(200).json({ orders: result.rows });
+    return res.status(200).json({ orders: normalizeKitchenOrders(result.rows) });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to fetch kitchen orders' });
   }
@@ -137,8 +193,10 @@ export async function getKitchenBoard(req, res) {
                'itemId', oi.id,
                'productId', oi.product_id,
                'name', p.name,
+               'categoryName', c.name,
                'quantity', oi.quantity,
                'isPrepared', oi.is_prepared,
+               'notes', oi.notes,
                'preparedAt', oi.prepared_at,
                'preparedBy', oi.prepared_by
              )
@@ -154,6 +212,7 @@ export async function getKitchenBoard(req, res) {
        LEFT JOIN users ku ON ku.id = o.assigned_kitchen_user
        LEFT JOIN order_items oi ON oi.order_id = o.id
        LEFT JOIN products p ON p.id = oi.product_id
+       LEFT JOIN categories c ON c.id = p.category_id
        WHERE o.status IN ('to_cook', 'preparing', 'completed')
          AND o.pos_id = $1
        GROUP BY o.id, ku.name, t.table_number, f.name
@@ -161,10 +220,11 @@ export async function getKitchenBoard(req, res) {
       [posId]
     );
 
+    const normalized = normalizeKitchenOrders(result.rows);
     const board = {
-      toCook: result.rows.filter((o) => o.status === 'to_cook'),
-      preparing: result.rows.filter((o) => o.status === 'preparing'),
-      completed: result.rows.filter((o) => o.status === 'completed'),
+      toCook: normalized.filter((o) => o.status === 'to_cook'),
+      preparing: normalized.filter((o) => o.status === 'preparing'),
+      completed: normalized.filter((o) => o.status === 'completed'),
     };
 
     return res.status(200).json({ board });
@@ -201,8 +261,10 @@ export async function getKitchenOrderById(req, res) {
                'itemId', oi.id,
                'productId', oi.product_id,
                'name', p.name,
+               'categoryName', c.name,
                'quantity', oi.quantity,
                'isPrepared', oi.is_prepared,
+               'notes', oi.notes,
                'preparedAt', oi.prepared_at,
                'preparedBy', oi.prepared_by
              )
@@ -218,6 +280,7 @@ export async function getKitchenOrderById(req, res) {
        LEFT JOIN users ku ON ku.id = o.assigned_kitchen_user
        LEFT JOIN order_items oi ON oi.order_id = o.id
        LEFT JOIN products p ON p.id = oi.product_id
+      LEFT JOIN categories c ON c.id = p.category_id
        WHERE o.id = $1 AND o.pos_id = $2
        GROUP BY o.id, ku.name, t.table_number, f.name`,
       [orderId, posId]
@@ -227,7 +290,7 @@ export async function getKitchenOrderById(req, res) {
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    return res.status(200).json({ order: result.rows[0] });
+    return res.status(200).json({ order: normalizeKitchenOrders(result.rows)[0] });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to fetch order' });
   }
@@ -322,44 +385,51 @@ export async function markKitchenItemPrepared(req, res) {
       return res.status(409).json({ error: 'Cannot update items for current order state' });
     }
 
-    const itemRes = await client.query(
-      `UPDATE order_items
-       SET is_prepared = true,
-           prepared_at = CURRENT_TIMESTAMP,
-           prepared_by = $3
-       WHERE order_id = $1 AND id = $2 AND is_prepared = false
-       RETURNING id, order_id, product_id, quantity, is_prepared, prepared_at, prepared_by`,
-      [orderId, itemId, req.user.id]
+    const existingItem = await client.query(
+      `SELECT id, quantity, notes, is_prepared
+       FROM order_items
+       WHERE order_id = $1 AND id = $2
+       FOR UPDATE`,
+      [orderId, itemId]
     );
 
-    if (!itemRes.rows[0]) {
-      const existingItem = await client.query(
-        'SELECT id, is_prepared FROM order_items WHERE order_id = $1 AND id = $2',
-        [orderId, itemId]
-      );
-
-      if (!existingItem.rows[0]) {
-        await rollbackTransaction(client);
-        return res.status(404).json({ error: 'Order item not found' });
-      }
-
+    if (!existingItem.rows[0]) {
       await rollbackTransaction(client);
-      return res.status(409).json({ error: 'Order item is already marked prepared' });
+      return res.status(404).json({ error: 'Order item not found' });
     }
 
-    let nextStatus = orderRes.rows[0].status;
-    if (orderRes.rows[0].status === 'to_cook') {
-      const statusUpdate = await client.query(
-        `UPDATE orders
-         SET status = 'preparing',
-             started_at = COALESCE(started_at, CURRENT_TIMESTAMP),
-             assigned_kitchen_user = COALESCE(assigned_kitchen_user, $2)
-         WHERE id = $1 AND pos_id = $3
-         RETURNING status`,
-        [orderId, req.user.id, posId]
-      );
-      nextStatus = statusUpdate.rows[0].status;
+    const currentItem = existingItem.rows[0];
+    const quantity = Number(currentItem.quantity || 0);
+    const preparedQuantity = normalizeItemPreparedQuantity({
+      quantity,
+      notes: currentItem.notes,
+      isPrepared: currentItem.is_prepared,
+    });
+
+    if (preparedQuantity >= quantity) {
+      await rollbackTransaction(client);
+      return res.status(409).json({ error: 'Order item is already fully prepared' });
     }
+
+    const nextPrepared = preparedQuantity + 1;
+    const itemRes = await client.query(
+      `UPDATE order_items
+       SET is_prepared = $3,
+           notes = $4,
+           prepared_at = CURRENT_TIMESTAMP,
+           prepared_by = $5
+       WHERE order_id = $1 AND id = $2
+       RETURNING id, order_id, product_id, quantity, is_prepared, prepared_at, prepared_by, notes`,
+      [
+        orderId,
+        itemId,
+        nextPrepared >= quantity,
+        JSON.stringify({ preparedQuantity: nextPrepared }),
+        req.user.id,
+      ]
+    );
+
+    const nextStatus = orderRes.rows[0].status;
 
     const progress = await getOrderProgress(client, orderId);
     await commitTransaction(client);
@@ -367,12 +437,13 @@ export async function markKitchenItemPrepared(req, res) {
     console.log(`KITCHEN_ITEM_PREPARED pos=${posId} order=${orderId} item=${itemId} user=${req.user.id}`);
 
     emitOrderItemPrepared(orderId, itemId, orderRes.rows[0].session_id, req.user.id);
-    if (nextStatus === 'preparing' && orderRes.rows[0].status !== 'preparing') {
-      emitOrderStatusUpdated(orderId, 'preparing', orderRes.rows[0].session_id);
-    }
 
     return res.status(200).json({
-      item: itemRes.rows[0],
+      item: {
+        ...itemRes.rows[0],
+        quantityPrepared: nextPrepared,
+        quantityPending: Math.max(0, quantity - nextPrepared),
+      },
       orderStatus: nextStatus,
       progress,
     });
