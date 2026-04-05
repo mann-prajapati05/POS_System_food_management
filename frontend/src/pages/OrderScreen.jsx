@@ -10,6 +10,10 @@ function orderTotal(items) {
   );
 }
 
+function isKitchenItem(item) {
+  return item?.is_kitchen_item !== false;
+}
+
 export default function OrderScreen({
   order,
   items,
@@ -30,9 +34,11 @@ export default function OrderScreen({
   const subtotal = orderTotal(items);
   const discount = 0;
   const finalAmount = Math.max(0, subtotal - discount);
+  const hasKitchenItems = items.some(isKitchenItem);
   const canAddOrIncrease = ['draft', 'pending', 'to_cook', 'preparing'].includes(order?.status);
   const canDecreaseOrRemove = ['draft', 'pending'].includes(order?.status);
-  const canSendToKitchen = ['draft', 'pending'].includes(order?.status);
+  const canSendToKitchen = ['draft', 'pending'].includes(order?.status) && hasKitchenItems;
+  const canProceedPayment = items.length > 0 && (!hasKitchenItems || order?.status === 'completed');
 
   return (
     <section className="flex gap-0 animate-fade-in" style={{ height: "calc(100vh - 80px)" }}>
@@ -103,6 +109,11 @@ export default function OrderScreen({
               Order sent to kitchen. You can add items but cannot remove.
             </p>
           )}
+          {!hasKitchenItems && items.length > 0 && (
+            <p className="mt-1 text-xs font-medium text-linen-text-secondary">
+              No items require kitchen preparation
+            </p>
+          )}
 
           <div className="mt-3 space-y-1.5 text-[13px]">
             <div className="flex justify-between text-linen-text-secondary">
@@ -135,7 +146,7 @@ export default function OrderScreen({
             </button>
             <button
               type="button"
-              disabled={busy || items.length === 0}
+              disabled={busy || !canProceedPayment}
               onClick={onPayment}
               className="h-10 w-full rounded-linen bg-linen-primary text-[13px] font-medium text-white transition-colors hover:bg-linen-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
             >

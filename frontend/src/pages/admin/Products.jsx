@@ -89,6 +89,7 @@ export default function Products() {
         categoryId: payload.categoryId,
         price: payload.price,
         description: payload.description,
+        isKitchenItem: payload.isKitchenItem,
         isAvailable: payload.isAvailable,
         image: payload.image,
       };

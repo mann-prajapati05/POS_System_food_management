@@ -337,7 +337,7 @@ export async function addOrderItem(req, res) {
     }
 
     const productRes = await client.query(
-      'SELECT id, price, is_available FROM products WHERE id = $1 AND pos_id = $2',
+      'SELECT id, price, is_available, is_kitchen_item FROM products WHERE id = $1 AND pos_id = $2',
       [productId, posId]
     );
     if (!productRes.rows[0]) {
@@ -370,15 +370,15 @@ export async function addOrderItem(req, res) {
       item = updated.rows[0];
     } else {
       const inserted = await client.query(
-        `INSERT INTO order_items (order_id, product_id, quantity, price_at_time, notes, is_prepared)
-         VALUES ($1, $2, $3, $4, $5, false)
-         RETURNING id, order_id, product_id, quantity, price_at_time, notes, is_prepared`,
-        [orderId, productId, quantity, productRes.rows[0].price, null]
+        `INSERT INTO order_items (order_id, product_id, is_kitchen_item, quantity, price_at_time, notes, is_prepared)
+         VALUES ($1, $2, $3, $4, $5, $6, false)
+         RETURNING id, order_id, product_id, is_kitchen_item, quantity, price_at_time, notes, is_prepared`,
+        [orderId, productId, productRes.rows[0].is_kitchen_item === true, quantity, productRes.rows[0].price, null]
       );
       item = inserted.rows[0];
     }
 
-    if (['to_cook', 'preparing', 'completed'].includes(orderRes.rows[0].status)) {
+    if (['to_cook', 'preparing', 'completed'].includes(orderRes.rows[0].status) && productRes.rows[0].is_kitchen_item === true) {
       await client.query(
         `UPDATE orders
          SET status = 'pending',
@@ -430,7 +430,7 @@ export async function updateOrderItem(req, res) {
     }
 
     const existingItemRes = await client.query(
-      'SELECT id, quantity, notes, is_prepared FROM order_items WHERE id = $1 AND order_id = $2',
+      'SELECT id, quantity, notes, is_prepared, is_kitchen_item FROM order_items WHERE id = $1 AND order_id = $2',
       [itemId, orderId]
     );
 
@@ -464,7 +464,7 @@ export async function updateOrderItem(req, res) {
       return res.status(404).json({ error: 'Order item not found' });
     }
 
-    if (['to_cook', 'preparing', 'completed'].includes(orderRes.rows[0].status)) {
+    if (['to_cook', 'preparing', 'completed'].includes(orderRes.rows[0].status) && existingItemRes.rows[0].is_kitchen_item === true) {
       await client.query(
         `UPDATE orders
          SET status = 'pending',
@@ -559,10 +559,22 @@ export async function sendOrderToKitchen(req, res) {
       return res.status(400).json({ error: 'Cannot send empty order to kitchen' });
     }
 
+    const kitchenItemsCountRes = await client.query(
+      `SELECT COUNT(*)::int AS count
+       FROM order_items
+       WHERE order_id = $1 AND is_kitchen_item = true`,
+      [orderId]
+    );
+
+    if (kitchenItemsCountRes.rows[0].count === 0) {
+      await rollbackTransaction(client);
+      return res.status(400).json({ error: 'No items require kitchen preparation' });
+    }
+
     const rawItemsRes = await client.query(
       `SELECT id, quantity, notes, is_prepared
        FROM order_items
-       WHERE order_id = $1`,
+       WHERE order_id = $1 AND is_kitchen_item = true`,
       [orderId]
     );
 
@@ -588,10 +600,10 @@ export async function sendOrderToKitchen(req, res) {
     );
 
     const itemsRes = await client.query(
-      `SELECT oi.id, oi.product_id, p.name AS product_name, oi.quantity, oi.price_at_time, oi.notes, oi.is_prepared
+      `SELECT oi.id, oi.product_id, p.name AS product_name, oi.quantity, oi.price_at_time, oi.notes, oi.is_prepared, oi.is_kitchen_item
        FROM order_items oi
        INNER JOIN products p ON p.id = oi.product_id
-       WHERE oi.order_id = $1`,
+       WHERE oi.order_id = $1 AND oi.is_kitchen_item = true`,
       [orderId]
     );
     const orderSessionRes = await client.query('SELECT session_id FROM orders WHERE id = $1 AND pos_id = $2', [orderId, posId]);
@@ -701,7 +713,15 @@ export async function processPayment(req, res) {
       return res.status(409).json({ error: 'Order is already paid' });
     }
 
-    if (order.status !== 'completed') {
+    const kitchenItemsRes = await client.query(
+      `SELECT COUNT(*)::int AS count
+       FROM order_items
+       WHERE order_id = $1 AND is_kitchen_item = true`,
+      [orderId]
+    );
+    const hasKitchenItems = kitchenItemsRes.rows[0].count > 0;
+
+    if (order.status !== 'completed' && hasKitchenItems) {
       await rollbackTransaction(client);
       return res.status(409).json({ error: 'Order must be completed before payment' });
     }
@@ -722,7 +742,9 @@ export async function processPayment(req, res) {
 
     const orderPaidRes = await client.query(
       `UPDATE orders
-       SET status = 'paid', paid_at = CURRENT_TIMESTAMP
+       SET status = 'paid',
+           paid_at = CURRENT_TIMESTAMP,
+           completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)
        WHERE id = $1 AND pos_id = $2
        RETURNING id, status, total_price, paid_at, table_id`,
       [orderId, posId]
@@ -846,6 +868,7 @@ export async function listProducts(req, res) {
          p.id,
          p.name,
          p.price,
+        p.is_kitchen_item,
         p.image_path,
         p.image_path AS image_url,
          p.description,
@@ -896,6 +919,7 @@ export async function getOrderDetails(req, res) {
          oi.id,
          oi.product_id,
          p.name AS product_name,
+        COALESCE(oi.is_kitchen_item, p.is_kitchen_item, true) AS is_kitchen_item,
          oi.quantity,
          oi.price_at_time,
          oi.notes,
@@ -964,6 +988,7 @@ export async function listSessionOrders(req, res) {
              json_build_object(
                'itemId', oi.id,
                'name', p.name,
+               'isKitchenItem', COALESCE(oi.is_kitchen_item, p.is_kitchen_item, true),
                'quantity', oi.quantity,
                'priceAtTime', oi.price_at_time
              )

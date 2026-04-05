@@ -2,6 +2,10 @@ function lineTotal(item) {
   return Number(item.quantity || 0) * Number(item.price_at_time || 0);
 }
 
+function isKitchenItem(item) {
+  return item?.is_kitchen_item !== false;
+}
+
 export default function CartPanel({ items, onIncrease, onDecrease, onRemove, disableDecreaseRemove = false }) {
   return (
     <section className="flex flex-col rounded-linen-lg border border-linen-border bg-white">
@@ -31,6 +35,11 @@ export default function CartPanel({ items, onIncrease, onDecrease, onRemove, dis
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13px] font-medium text-linen-text-primary">{item.product_name}</p>
+                {!isKitchenItem(item) && (
+                  <span className="mt-0.5 inline-flex rounded-linen-pill bg-linen-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-linen-text-secondary">
+                    Direct Serve
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-1.5 px-3">

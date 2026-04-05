@@ -97,6 +97,12 @@ async function ensureProductImageSchema() {
   await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image_path TEXT;');
 }
 
+async function ensureKitchenItemSchema() {
+  await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS is_kitchen_item BOOLEAN NOT NULL DEFAULT TRUE;');
+  await pool.query('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS is_kitchen_item BOOLEAN NOT NULL DEFAULT TRUE;');
+  await pool.query('UPDATE order_items SET is_kitchen_item = TRUE WHERE is_kitchen_item IS NULL;');
+}
+
 export async function ensureDatabaseAndSchema() {
   const maintenanceDb = process.env.DB_MAINTENANCE_DB || 'postgres';
   const adminPool = new Pool({
@@ -137,6 +143,7 @@ export async function ensureDatabaseAndSchema() {
   }
 
   await ensureProductImageSchema();
+  await ensureKitchenItemSchema();
   await ensureRazorpayCompatibilitySchema();
 }
 

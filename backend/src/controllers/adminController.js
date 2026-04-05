@@ -616,7 +616,7 @@ export async function createProduct(req, res) {
       await removeUploadedFileIfExists(req.file);
       return res.status(scope.status).json({ error: scope.error });
     }
-    const { name, categoryId, price, description, isAvailable } = req.body;
+    const { name, categoryId, price, description, isAvailable, isKitchenItem, is_kitchen_item } = req.body;
     const imagePath = buildProductImagePath(req);
 
     if (!name || !categoryId || price === undefined) {
@@ -647,11 +647,18 @@ export async function createProduct(req, res) {
       return res.status(400).json({ error: 'isAvailable must be true or false' });
     }
 
+    const parsedKitchenItem = isKitchenItem ?? is_kitchen_item;
+    const kitchenItem = parsedKitchenItem === undefined ? true : parseBoolean(parsedKitchenItem);
+    if (kitchenItem === null) {
+      await removeUploadedFileIfExists(req.file);
+      return res.status(400).json({ error: 'isKitchenItem must be true or false' });
+    }
+
     const result = await query(
-      `INSERT INTO products (name, category_id, price, image_path, description, is_available, pos_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, name, category_id, price, image_path, image_path AS image_url, description, is_available, pos_id, created_at, updated_at`,
-      [String(name).trim(), categoryId, parsedPrice, imagePath, description || null, available, scope.selectedPosId]
+      `INSERT INTO products (name, category_id, price, is_kitchen_item, image_path, description, is_available, pos_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, name, category_id, price, is_kitchen_item, image_path, image_path AS image_url, description, is_available, pos_id, created_at, updated_at`,
+      [String(name).trim(), categoryId, parsedPrice, kitchenItem, imagePath, description || null, available, scope.selectedPosId]
     );
 
     return res.status(201).json({ product: result.rows[0] });
@@ -700,6 +707,7 @@ export async function listProducts(req, res) {
          p.category_id,
          c.name AS category_name,
          p.price,
+         p.is_kitchen_item,
          p.image_path,
          p.image_path AS image_url,
          p.description,
@@ -727,7 +735,7 @@ export async function updateProduct(req, res) {
       return res.status(scope.status).json({ error: scope.error });
     }
     const { productId } = req.params;
-    const { name, categoryId, price, description, isAvailable } = req.body;
+    const { name, categoryId, price, description, isAvailable, isKitchenItem, is_kitchen_item } = req.body;
 
     if (!isUuid(productId)) {
       await removeUploadedFileIfExists(req.file);
@@ -801,6 +809,17 @@ export async function updateProduct(req, res) {
       updates.push(`is_available = $${values.length}`);
     }
 
+    const parsedKitchenItem = isKitchenItem ?? is_kitchen_item;
+    if (parsedKitchenItem !== undefined) {
+      const parsed = parseBoolean(parsedKitchenItem);
+      if (parsed === null) {
+        await removeUploadedFileIfExists(req.file);
+        return res.status(400).json({ error: 'isKitchenItem must be true or false' });
+      }
+      values.push(parsed);
+      updates.push(`is_kitchen_item = $${values.length}`);
+    }
+
     if (updates.length === 0) {
       await removeUploadedFileIfExists(req.file);
       return res.status(400).json({ error: 'No valid fields provided for update' });
@@ -813,7 +832,7 @@ export async function updateProduct(req, res) {
       `UPDATE products
        SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
        WHERE id = $${values.length - 1} AND pos_id = ANY($${values.length}::uuid[])
-       RETURNING id, name, category_id, price, image_path, image_path AS image_url, description, is_available, pos_id, created_at, updated_at`,
+       RETURNING id, name, category_id, price, is_kitchen_item, image_path, image_path AS image_url, description, is_available, pos_id, created_at, updated_at`,
       values
     );
 

@@ -80,7 +80,7 @@ async function getOrderProgress(client, orderId) {
   const progressRes = await client.query(
     `SELECT quantity, is_prepared, notes
      FROM order_items
-     WHERE order_id = $1`,
+     WHERE order_id = $1 AND is_kitchen_item = true`,
     [orderId]
   );
 
@@ -145,11 +145,11 @@ export async function getKitchenOrders(req, res) {
                'preparedBy', oi.prepared_by
              )
              ORDER BY oi.created_at
-           ) FILTER (WHERE oi.id IS NOT NULL),
+           ) FILTER (WHERE oi.id IS NOT NULL AND COALESCE(oi.is_kitchen_item, p.is_kitchen_item, true) = true),
            '[]'::json
          ) AS items,
-         COUNT(oi.id)::int AS total_items,
-         COUNT(*) FILTER (WHERE oi.is_prepared = true)::int AS prepared_items
+         COUNT(*) FILTER (WHERE oi.id IS NOT NULL AND COALESCE(oi.is_kitchen_item, p.is_kitchen_item, true) = true)::int AS total_items,
+         COUNT(*) FILTER (WHERE oi.is_prepared = true AND COALESCE(oi.is_kitchen_item, p.is_kitchen_item, true) = true)::int AS prepared_items
        FROM orders o
        INNER JOIN tables t ON t.id = o.table_id
        INNER JOIN floors f ON f.id = t.floor_id
@@ -201,11 +201,11 @@ export async function getKitchenBoard(req, res) {
                'preparedBy', oi.prepared_by
              )
              ORDER BY oi.created_at
-           ) FILTER (WHERE oi.id IS NOT NULL),
+           ) FILTER (WHERE oi.id IS NOT NULL AND COALESCE(oi.is_kitchen_item, p.is_kitchen_item, true) = true),
            '[]'::json
          ) AS items,
-         COUNT(oi.id)::int AS total_items,
-         COUNT(*) FILTER (WHERE oi.is_prepared = true)::int AS prepared_items
+         COUNT(*) FILTER (WHERE oi.id IS NOT NULL AND COALESCE(oi.is_kitchen_item, p.is_kitchen_item, true) = true)::int AS total_items,
+         COUNT(*) FILTER (WHERE oi.is_prepared = true AND COALESCE(oi.is_kitchen_item, p.is_kitchen_item, true) = true)::int AS prepared_items
        FROM orders o
        INNER JOIN tables t ON t.id = o.table_id
        INNER JOIN floors f ON f.id = t.floor_id
@@ -269,11 +269,11 @@ export async function getKitchenOrderById(req, res) {
                'preparedBy', oi.prepared_by
              )
              ORDER BY oi.created_at
-           ) FILTER (WHERE oi.id IS NOT NULL),
+           ) FILTER (WHERE oi.id IS NOT NULL AND COALESCE(oi.is_kitchen_item, p.is_kitchen_item, true) = true),
            '[]'::json
          ) AS items,
-         COUNT(oi.id)::int AS total_items,
-         COUNT(*) FILTER (WHERE oi.is_prepared = true)::int AS prepared_items
+         COUNT(*) FILTER (WHERE oi.id IS NOT NULL AND COALESCE(oi.is_kitchen_item, p.is_kitchen_item, true) = true)::int AS total_items,
+         COUNT(*) FILTER (WHERE oi.is_prepared = true AND COALESCE(oi.is_kitchen_item, p.is_kitchen_item, true) = true)::int AS prepared_items
        FROM orders o
        INNER JOIN tables t ON t.id = o.table_id
        INNER JOIN floors f ON f.id = t.floor_id
@@ -388,7 +388,7 @@ export async function markKitchenItemPrepared(req, res) {
     const existingItem = await client.query(
       `SELECT id, quantity, notes, is_prepared
        FROM order_items
-       WHERE order_id = $1 AND id = $2
+       WHERE order_id = $1 AND id = $2 AND is_kitchen_item = true
        FOR UPDATE`,
       [orderId, itemId]
     );

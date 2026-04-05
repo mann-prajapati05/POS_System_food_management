@@ -7,6 +7,7 @@ const INITIAL_FORM = {
   description: '',
   image: null,
   currentImage: '',
+  isKitchenItem: true,
   isAvailable: true,
   variants: [],
 };
@@ -76,6 +77,7 @@ export default function ProductForm({
       description: initialValues?.description || '',
       image: null,
       currentImage: initialValues?.image_path || initialValues?.image_url || '',
+      isKitchenItem: initialValues?.is_kitchen_item ?? true,
       isAvailable: initialValues?.is_available ?? true,
       variants: initialValues?.variants || [],
     });
@@ -97,6 +99,7 @@ export default function ProductForm({
               categoryId: form.categoryId,
               price: Number(form.price),
               description: form.description.trim() || undefined,
+              isKitchenItem: Boolean(form.isKitchenItem),
               isAvailable: Boolean(form.isAvailable),
               image: form.image || undefined,
               variants: form.variants,
@@ -145,6 +148,16 @@ export default function ProductForm({
           <div className="sm:col-span-2">
             <VariantEditor variants={form.variants} onChange={(variants) => setForm((prev) => ({ ...prev, variants }))} />
           </div>
+
+          <label className="inline-flex items-center gap-2 rounded-linen border border-linen-border px-3 py-2.5 text-[13px] font-medium text-linen-text-primary sm:col-span-2">
+            <input
+              type="checkbox"
+              checked={Boolean(form.isKitchenItem)}
+              onChange={(e) => setForm((prev) => ({ ...prev, isKitchenItem: e.target.checked }))}
+              className="h-4 w-4 rounded border-linen-border accent-linen-primary"
+            />
+            Requires Kitchen
+          </label>
 
           <label className="inline-flex items-center gap-2 rounded-linen border border-linen-border px-3 py-2.5 text-[13px] font-medium text-linen-text-primary sm:col-span-2">
             <input
