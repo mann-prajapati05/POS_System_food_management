@@ -42,6 +42,9 @@ import {
   getAdminDashboard,
   listPos,
   createPos,
+  updatePos,
+  deletePos,
+  togglePosActive,
 } from '../controllers/adminController.js';
 
 const router = express.Router();
@@ -51,6 +54,9 @@ router.use(requireAuth, attachPOSContext, authorizeRole('admin'));
 router.get('/dashboard', asyncHandler(getAdminDashboard));
 router.get('/pos', asyncHandler(listPos));
 router.post('/pos', asyncHandler(createPos));
+router.patch('/pos/:posId', validateUuidParam('posId'), validateAdminPosBody, validateRequest, asyncHandler(updatePos));
+router.delete('/pos/:posId', validateUuidParam('posId'), validateRequest, asyncHandler(deletePos));
+router.patch('/pos/:posId/toggle-active', validateUuidParam('posId'), validateRequest, asyncHandler(togglePosActive));
 
 router.post('/users', validateAdminPosBody, validateRequest, asyncHandler(createUser));
 router.get('/users', validateAdminPosQuery, validateRequest, asyncHandler(listUsers));

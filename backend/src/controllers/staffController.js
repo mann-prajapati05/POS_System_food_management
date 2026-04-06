@@ -68,6 +68,20 @@ export async function openSession(req, res) {
     const posId = req.user.posId;
     const { notes } = req.body || {};
 
+    // Check if POS is active
+    const posCheck = await query(
+      'SELECT id, is_active FROM pos WHERE id = $1 LIMIT 1',
+      [posId]
+    );
+
+    if (!posCheck.rows[0]) {
+      return res.status(404).json({ error: 'POS not found' });
+    }
+
+    if (!posCheck.rows[0].is_active) {
+      return res.status(403).json({ error: 'This POS is inactive. Please activate it first.' });
+    }
+
     const existing = await query(
       `SELECT id, pos_id, status, opened_at, notes
        FROM pos_sessions

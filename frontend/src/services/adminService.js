@@ -10,6 +10,27 @@ export async function createPos(payload) {
   return data.pos;
 }
 
+export async function updatePos(posId, payload) {
+  const { data } = await api.patch(`/admin/pos/${posId}`, payload);
+  return data.pos;
+}
+
+export async function deletePos(posId, secretCode) {
+  const { data } = await api.request({
+    method: 'delete',
+    url: `/admin/pos/${posId}`,
+    data: { secretCode },
+  });
+  return data;
+}
+
+export async function togglePosActive(posId, isActive) {
+  const { data } = await api.patch(`/admin/pos/${posId}/toggle-active`, {
+    isActive,
+  });
+  return data.pos;
+}
+
 export async function getAdminDashboard(params = {}) {
   const { data } = await api.get('/admin/dashboard', { params });
   return data;

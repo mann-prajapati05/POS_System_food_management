@@ -13,15 +13,16 @@ function loadStoredAuth() {
     return {
       token: parsed.token || null,
       user: parsed.user || null,
+      adminSecretCode: parsed.adminSecretCode || null,
       isAuthenticated: Boolean(parsed.token && parsed.user),
     };
   } catch {
-    return { token: null, user: null, isAuthenticated: false };
+    return { token: null, user: null, adminSecretCode: null, isAuthenticated: false };
   }
 }
 
-function persistAuth(token, user) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ token, user }));
+function persistAuth(token, user, adminSecretCode = null) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ token, user, adminSecretCode }));
 }
 
 function clearPersistedAuth() {
@@ -33,16 +34,17 @@ const initialState = loadStoredAuth();
 const useAuthStore = create((set) => ({
   token: initialState.token,
   user: initialState.user,
+  adminSecretCode: initialState.adminSecretCode,
   isAuthenticated: initialState.isAuthenticated,
 
-  setAuth: ({ token, user }) => {
-    persistAuth(token, user);
-    set({ token, user, isAuthenticated: true });
+  setAuth: ({ token, user, adminSecretCode }) => {
+    persistAuth(token, user, adminSecretCode);
+    set({ token, user, adminSecretCode, isAuthenticated: true });
   },
 
   clearAuth: () => {
     clearPersistedAuth();
-    set({ token: null, user: null, isAuthenticated: false });
+    set({ token: null, user: null, adminSecretCode: null, isAuthenticated: false });
   },
 }));
 

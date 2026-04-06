@@ -1,11 +1,12 @@
 import bcrypt from 'bcrypt';
 import { unlink } from 'fs/promises';
 import path from 'path';
-import { query } from '../config/db.js';
+import { beginTransaction, commitTransaction, query, rollbackTransaction } from '../config/db.js';
 
 const USER_ROLES = new Set(['staff', 'kitchen', 'admin']);
 const TABLE_STATUSES = new Set(['available', 'occupied']);
 const PAYMENT_METHODS = new Set(['cash', 'card', 'digital', 'upi']);
+const ADMIN_SECRET_CODE = process.env.ADMIN_SECRET_CODE || 'ADMIN-POS-2026';
 let usersHasPosIdColumnCache = null;
 
 function generatePosUniqueId() {
@@ -169,6 +170,173 @@ export async function createPos(req, res) {
     return res.status(201).json({ pos: created.rows[0] });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to create POS' });
+  }
+}
+
+export async function updatePos(req, res) {
+  try {
+    await ensurePosTable();
+    const { posId } = req.params;
+    const { name } = req.body || {};
+
+    if (!isUuid(posId)) {
+      return res.status(400).json({ error: 'posId must be a valid UUID' });
+    }
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'POS name is required' });
+    }
+
+    const normalizedName = String(name).trim();
+    const existing = await query('SELECT id FROM pos WHERE id = $1 LIMIT 1', [posId]);
+    if (!existing.rows[0]) {
+      return res.status(404).json({ error: 'POS not found' });
+    }
+
+    const duplicate = await query(
+      'SELECT id FROM pos WHERE LOWER(name) = LOWER($1) AND id != $2 LIMIT 1',
+      [normalizedName, posId]
+    );
+    if (duplicate.rows[0]) {
+      return res.status(409).json({ error: 'POS name already exists' });
+    }
+
+    const updated = await query(
+      `UPDATE pos
+       SET name = $2
+       WHERE id = $1
+       RETURNING id, name, code AS unique_id, is_active, created_at`,
+      [posId, normalizedName]
+    );
+
+    return res.status(200).json({ pos: updated.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to update POS' });
+  }
+}
+
+export async function deletePos(req, res) {
+  let client;
+  try {
+    await ensurePosTable();
+    const { posId } = req.params;
+    const { secretCode } = req.body || {};
+
+    if (!isUuid(posId)) {
+      return res.status(400).json({ error: 'posId must be a valid UUID' });
+    }
+
+    if (!secretCode || String(secretCode).trim() === '') {
+      return res.status(400).json({ error: 'Secret code is required to delete POS' });
+    }
+
+    if (String(secretCode).trim() !== ADMIN_SECRET_CODE) {
+      return res.status(403).json({ error: 'Invalid secret code' });
+    }
+
+    const existing = await query('SELECT id, name FROM pos WHERE id = $1 LIMIT 1', [posId]);
+    if (!existing.rows[0]) {
+      return res.status(404).json({ error: 'POS not found' });
+    }
+
+    client = await beginTransaction();
+
+    let fallbackPosId = null;
+    const fallbackRes = await client.query(
+      'SELECT id FROM pos WHERE id != $1 ORDER BY created_at ASC LIMIT 1',
+      [posId]
+    );
+    if (fallbackRes.rows[0]) {
+      fallbackPosId = fallbackRes.rows[0].id;
+    } else {
+      // Ensure users can still satisfy NOT NULL pos_id when deleting the final POS.
+      let uniqueId = null;
+      for (let i = 0; i < 8; i += 1) {
+        const candidate = generatePosUniqueId();
+        const exists = await client.query('SELECT 1 FROM pos WHERE code = $1 LIMIT 1', [candidate]);
+        if (!exists.rows[0]) {
+          uniqueId = candidate;
+          break;
+        }
+      }
+
+      if (!uniqueId) {
+        throw new Error('Failed to generate fallback POS unique ID');
+      }
+
+      const createdFallback = await client.query(
+        `INSERT INTO pos (name, code, is_active)
+         VALUES ('Main POS', $1, true)
+         RETURNING id`,
+        [uniqueId]
+      );
+      fallbackPosId = createdFallback.rows[0].id;
+    }
+
+    await client.query('UPDATE users SET pos_id = $2 WHERE pos_id = $1', [posId, fallbackPosId]);
+    await client.query('DELETE FROM user_pos_access WHERE pos_id = $1', [posId]);
+
+    await client.query('DELETE FROM payments WHERE pos_id = $1', [posId]);
+    await client.query('DELETE FROM orders WHERE pos_id = $1', [posId]);
+    await client.query('DELETE FROM pos_sessions WHERE pos_id = $1', [posId]);
+
+    await client.query('DELETE FROM payment_method_settings WHERE pos_id = $1', [posId]);
+    await client.query('DELETE FROM tables WHERE pos_id = $1', [posId]);
+    await client.query('DELETE FROM floors WHERE pos_id = $1', [posId]);
+    await client.query('DELETE FROM products WHERE pos_id = $1', [posId]);
+    await client.query('DELETE FROM categories WHERE pos_id = $1', [posId]);
+
+    const deleted = await client.query(
+      'DELETE FROM pos WHERE id = $1 RETURNING id, name, code AS unique_id',
+      [posId]
+    );
+
+    await commitTransaction(client);
+    client = null;
+
+    return res.status(200).json({ message: 'POS deleted successfully', pos: deleted.rows[0] });
+  } catch (err) {
+    if (client) {
+      await rollbackTransaction(client);
+    }
+    return res.status(500).json({ error: 'Failed to delete POS' });
+  }
+}
+
+export async function togglePosActive(req, res) {
+  try {
+    await ensurePosTable();
+    const { posId } = req.params;
+    const { isActive } = req.body || {};
+
+    if (!isUuid(posId)) {
+      return res.status(400).json({ error: 'posId must be a valid UUID' });
+    }
+
+    if (isActive === undefined || isActive === null) {
+      return res.status(400).json({ error: 'isActive field is required' });
+    }
+
+    const existing = await query(
+      'SELECT id, is_active FROM pos WHERE id = $1 LIMIT 1',
+      [posId]
+    );
+
+    if (!existing.rows[0]) {
+      return res.status(404).json({ error: 'POS not found' });
+    }
+
+    const updated = await query(
+      `UPDATE pos
+       SET is_active = $2
+       WHERE id = $1
+       RETURNING id, name, code AS unique_id, is_active, created_at`,
+      [posId, Boolean(isActive)]
+    );
+
+    return res.status(200).json({ pos: updated.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to toggle POS active status' });
   }
 }
 

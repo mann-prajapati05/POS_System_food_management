@@ -5,10 +5,12 @@ import PosCard from "../components/PosCard";
 import useAuthStore from "../store/authStore";
 import { ADMIN_POS_CONTEXT_KEY } from "../services/api";
 import {
+  deletePos,
   getAdminActiveSession,
   getAdminSessionSummary,
   listPos,
   openAdminSession,
+  updatePos,
 } from "../services/adminService";
 
 function getDisplayName(user) {
@@ -31,6 +33,9 @@ export default function AdminPos() {
   const [lastClosingSale, setLastClosingSale] = useState(0);
   const [posList, setPosList] = useState([]);
   const [selectedPosId, setSelectedPosId] = useState("");
+  const [posNameDraft, setPosNameDraft] = useState("");
+  const [savingPosName, setSavingPosName] = useState(false);
+  const [deletingPos, setDeletingPos] = useState(false);
 
   const isActive = session?.status === "active";
 
@@ -38,6 +43,10 @@ export default function AdminPos() {
     () => posList.find((pos) => pos.id === selectedPosId) || null,
     [posList, selectedPosId],
   );
+
+  useEffect(() => {
+    setPosNameDraft(selectedPos?.name || "");
+  }, [selectedPos?.id, selectedPos?.name]);
 
   const loadSessionForPos = async (posId) => {
     if (!posId) {
@@ -143,6 +152,79 @@ export default function AdminPos() {
     }
   };
 
+  const onRenamePos = async () => {
+    if (!selectedPosId) {
+      toast.error("Select POS first");
+      return;
+    }
+
+    const nextName = String(posNameDraft || "").trim();
+    if (!nextName) {
+      toast.error("POS name is required");
+      return;
+    }
+
+    setSavingPosName(true);
+    try {
+      const updated = await updatePos(selectedPosId, { name: nextName });
+      setPosList((prev) =>
+        prev.map((pos) =>
+          pos.id === updated.id ? { ...pos, ...updated } : pos,
+        ),
+      );
+      toast.success("POS name updated");
+    } catch (error) {
+      toast.error(error?.response?.data?.error || "Failed to update POS");
+    } finally {
+      setSavingPosName(false);
+    }
+  };
+
+  const onDeletePos = async () => {
+    if (!selectedPosId) {
+      toast.error("Select POS first");
+      return;
+    }
+
+    const enteredSecret = window.prompt(
+      "Enter admin secret code to delete this POS:",
+    );
+    if (enteredSecret === null) {
+      return;
+    }
+
+    const secretCode = String(enteredSecret).trim();
+    if (!secretCode) {
+      toast.error("Secret code is required");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Are you sure? This will permanently delete this POS and all its data. This cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    setDeletingPos(true);
+    try {
+      await deletePos(selectedPosId, secretCode);
+      const nextPosList = await listPos();
+      setPosList(nextPosList);
+      const nextPosId = nextPosList[0]?.id || "";
+      setSelectedPosId(nextPosId);
+      if (nextPosId) {
+        localStorage.setItem(ADMIN_POS_CONTEXT_KEY, nextPosId);
+      } else {
+        localStorage.removeItem(ADMIN_POS_CONTEXT_KEY);
+      }
+      await loadSessionForPos(nextPosId);
+      toast.success("POS deleted successfully");
+    } catch (error) {
+      toast.error(error?.response?.data?.error || "Failed to delete POS");
+    } finally {
+      setDeletingPos(false);
+    }
+  };
+
   const stats = useMemo(() => {
     if (!session) {
       return {
@@ -239,6 +321,30 @@ export default function AdminPos() {
                     </option>
                   ))}
                 </select>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    value={posNameDraft}
+                    onChange={(e) => setPosNameDraft(e.target.value)}
+                    placeholder="Rename POS"
+                    className="h-9 w-64 rounded-linen border border-linen-border bg-white px-3 text-[13px] text-linen-text-primary outline-none transition-colors focus:border-linen-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={onRenamePos}
+                    disabled={!selectedPosId || savingPosName}
+                    className="h-9 rounded-linen border border-linen-border px-4 text-[13px] font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {savingPosName ? "Saving..." : "Update Name"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onDeletePos}
+                    disabled={!selectedPosId || deletingPos}
+                    className="h-9 rounded-linen bg-[#DC2626] px-4 text-[13px] font-medium text-white transition-colors hover:bg-[#B91C1C] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {deletingPos ? "Deleting..." : "Delete POS"}
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -260,11 +366,19 @@ export default function AdminPos() {
                 If no active session exists, create one first. If active, choose
                 where to enter.
               </p>
+              {selectedPos && !selectedPos.is_active && (
+                <div className="mt-3 rounded-linen-lg border border-[#FCA5A5] bg-[#FEF2F2] p-3">
+                  <p className="text-[13px] font-medium text-[#DC2626]">
+                    ⚠️ This POS is inactive. Please activate it from the Admin
+                    Console before proceeding.
+                  </p>
+                </div>
+              )}
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={onOpenSession}
-                  disabled={opening}
+                  disabled={opening || !selectedPos?.is_active}
                   className="h-9 rounded-linen border border-linen-border px-4 text-[13px] font-medium text-linen-text-primary transition-colors hover:bg-linen-surface-2 disabled:opacity-70"
                 >
                   {opening
@@ -284,7 +398,7 @@ export default function AdminPos() {
                     }
                     navigate(`/pos/terminal?posId=${selectedPosId}`);
                   }}
-                  disabled={!isActive}
+                  disabled={!isActive || !selectedPos?.is_active}
                   className="h-9 rounded-linen bg-linen-primary px-4 text-[13px] font-medium text-white transition-colors hover:bg-linen-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Enter Staff View
@@ -300,7 +414,7 @@ export default function AdminPos() {
                     }
                     navigate(`/kitchen?posId=${selectedPosId}`);
                   }}
-                  disabled={!isActive}
+                  disabled={!isActive || !selectedPos?.is_active}
                   className="h-9 rounded-linen bg-linen-primary px-4 text-[13px] font-medium text-white transition-colors hover:bg-linen-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Enter Kitchen View
