@@ -34,20 +34,24 @@ function normalizeStatuses(statusParam) {
 }
 
 function parsePreparedQuantityFromNotes(notes) {
-  if (!notes || typeof notes !== 'string') return 0;
+  if (!notes || typeof notes !== 'string') return null;
   try {
     const parsed = JSON.parse(notes);
-    const value = Number(parsed?.preparedQuantity || 0);
-    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+    const raw = parsed?.preparedQuantity;
+    if (raw === undefined || raw === null) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
   } catch {
-    return 0;
+    return null;
   }
 }
 
 function normalizeItemPreparedQuantity(item) {
   const quantity = Number(item?.quantity || 0);
   const parsedPrepared = parsePreparedQuantityFromNotes(item?.notes);
-  const prepared = Math.max(parsedPrepared, item?.isPrepared ? quantity : 0);
+  const prepared = parsedPrepared !== null
+    ? parsedPrepared
+    : (item?.isPrepared ? quantity : 0);
   return Math.min(prepared, quantity);
 }
 
@@ -86,10 +90,8 @@ async function getOrderProgress(client, orderId) {
 
   const progress = progressRes.rows.reduce((acc, row) => {
     const quantity = Number(row.quantity || 0);
-    const prepared = Math.min(
-      quantity,
-      Math.max(parsePreparedQuantityFromNotes(row.notes), row.is_prepared ? quantity : 0)
-    );
+    const parsedPrepared = parsePreparedQuantityFromNotes(row.notes);
+    const prepared = Math.min(quantity, parsedPrepared !== null ? parsedPrepared : (row.is_prepared ? quantity : 0));
     acc.total_items += quantity;
     acc.prepared_items += prepared;
     return acc;
@@ -407,11 +409,20 @@ export async function markKitchenItemPrepared(req, res) {
     });
 
     if (preparedQuantity >= quantity) {
-      await rollbackTransaction(client);
-      return res.status(409).json({ error: 'Order item is already fully prepared' });
+      const progress = await getOrderProgress(client, orderId);
+      await commitTransaction(client);
+      return res.status(200).json({
+        item: {
+          ...currentItem,
+          quantityPrepared: preparedQuantity,
+          quantityPending: Math.max(0, quantity - preparedQuantity),
+        },
+        orderStatus: orderRes.rows[0].status,
+        progress,
+      });
     }
 
-    const nextPrepared = preparedQuantity + 1;
+    const nextPrepared = quantity;
     const itemRes = await client.query(
       `UPDATE order_items
        SET is_prepared = $3,
@@ -423,7 +434,7 @@ export async function markKitchenItemPrepared(req, res) {
       [
         orderId,
         itemId,
-        nextPrepared >= quantity,
+        true,
         JSON.stringify({ preparedQuantity: nextPrepared }),
         req.user.id,
       ]

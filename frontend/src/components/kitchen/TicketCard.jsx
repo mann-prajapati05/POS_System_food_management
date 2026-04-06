@@ -1,27 +1,26 @@
-import ItemRow from './ItemRow';
+import ItemRow from "./ItemRow";
 
 const STAGE_STYLE = {
   to_cook: {
-    card: 'border-l-[3px] border-l-[#EF4444]',
-    badge: 'bg-[#EF4444]/20 text-[#EF4444]',
-    label: 'To Cook',
+    card: "border-l-[3px] border-l-[#EF4444]",
+    badge: "bg-[#EF4444]/20 text-[#EF4444]",
+    label: "To Cook",
   },
   preparing: {
-    card: 'border-l-[3px] border-l-[#F59E0B]',
-    badge: 'bg-[#F59E0B]/20 text-[#F59E0B]',
-    label: 'Preparing',
+    card: "border-l-[3px] border-l-[#F59E0B]",
+    badge: "bg-[#F59E0B]/20 text-[#F59E0B]",
+    label: "Preparing",
   },
   completed: {
-    card: 'border-l-[3px] border-l-[#22C55E]',
-    badge: 'bg-[#22C55E]/20 text-[#22C55E]',
-    label: 'Completed',
+    card: "border-l-[3px] border-l-[#22C55E]",
+    badge: "bg-[#22C55E]/20 text-[#22C55E]",
+    label: "Completed",
   },
 };
 
 export default function TicketCard({
   order,
   stage,
-  stagedPreparedMap,
   canPromoteToPreparing,
   onToggleItem,
   onPromote,
@@ -31,28 +30,39 @@ export default function TicketCard({
   isUpdated,
 }) {
   const style = STAGE_STYLE[stage] || STAGE_STYLE.to_cook;
-  const cardAction = stage === 'preparing' ? () => onComplete(order) : stage === 'completed' ? () => onServe(order) : null;
+  const cardAction =
+    stage === "preparing"
+      ? () => onComplete(order)
+      : stage === "completed"
+        ? () => onServe(order)
+        : null;
 
   return (
     <article
-      role={cardAction ? 'button' : undefined}
+      role={cardAction ? "button" : undefined}
       tabIndex={cardAction && !busy ? 0 : undefined}
       onClick={busy ? undefined : cardAction || undefined}
       onKeyDown={(e) => {
         if (!cardAction || busy) return;
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           cardAction();
         }
       }}
-      className={`rounded-[10px] border border-[#2A2A2A] bg-[#1A1A1A] p-3.5 transition-all ${style.card} ${cardAction ? 'cursor-pointer hover:border-[#3A3A3A]' : ''}`}
+      className={`rounded-[10px] border border-[#2A2A2A] bg-[#1A1A1A] p-3.5 transition-all ${style.card} ${cardAction ? "cursor-pointer hover:border-[#3A3A3A]" : ""}`}
     >
       <header className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="font-mono text-[13px] font-semibold text-[#F5F5F5]">{order.ticketLabel}</h3>
-          <p className="text-[11px] text-[#888888]">Table {order.table_number}</p>
+          <h3 className="font-mono text-[13px] font-semibold text-[#F5F5F5]">
+            {order.ticketLabel}
+          </h3>
+          <p className="text-[11px] text-[#888888]">
+            Table {order.table_number}
+          </p>
         </div>
-        <span className={`rounded-linen-pill px-2 py-0.5 text-[11px] font-semibold uppercase ${style.badge}`}>
+        <span
+          className={`rounded-linen-pill px-2 py-0.5 text-[11px] font-semibold uppercase ${style.badge}`}
+        >
           {style.label}
         </span>
       </header>
@@ -65,16 +75,21 @@ export default function TicketCard({
 
       <div className="mt-3 space-y-0.5">
         {order.items.map((item) => {
-          const staged = Number(stagedPreparedMap[item.itemId] || 0);
-          const basePrepared = Number(item.quantityPrepared ?? 0);
-          const effectivePrepared = Math.min(Number(item.quantity || 0), basePrepared + staged);
+          const prepared = Math.min(
+            Number(item.quantity || 0),
+            Number(item.quantityPrepared ?? 0),
+          );
           return (
             <ItemRow
               key={item.itemId}
               item={item}
-              preparedQuantity={effectivePrepared}
-              stagedPreparedQuantity={staged}
-              canToggle={stage === 'to_cook' && !busy && effectivePrepared < Number(item.quantity || 0)}
+              preparedQuantity={prepared}
+              stagedPreparedQuantity={0}
+              canToggle={
+                stage === "to_cook" &&
+                !busy &&
+                prepared < Number(item.quantity || 0)
+              }
               onToggle={() => onToggleItem(order, item)}
             />
           );
@@ -86,7 +101,7 @@ export default function TicketCard({
           {order.preparedCountDisplay}/{order.totalQuantityDisplay} prepared
         </p>
 
-        {stage === 'to_cook' && (
+        {stage === "to_cook" && (
           <button
             type="button"
             disabled={busy || !canPromoteToPreparing}
@@ -100,7 +115,7 @@ export default function TicketCard({
           </button>
         )}
 
-        {stage === 'preparing' && (
+        {stage === "preparing" && (
           <button
             type="button"
             disabled={busy}
@@ -114,7 +129,7 @@ export default function TicketCard({
           </button>
         )}
 
-        {stage === 'completed' && (
+        {stage === "completed" && (
           <button
             type="button"
             disabled={busy}

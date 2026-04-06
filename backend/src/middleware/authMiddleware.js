@@ -43,6 +43,18 @@ export function authorizeRoles(...roles) {
 export const requireAuth = authenticateToken;
 
 export function attachPOSContext(req, res, next) {
+  const requestedPosId = req.params?.posId || req.query?.posId || req.body?.posId || req.headers['x-pos-id'];
+
+  if (req.user?.role === 'admin') {
+    const resolvedPosId = requestedPosId || req.user?.posId;
+    if (!resolvedPosId) {
+      return res.status(400).json({ error: 'posId is required for admin access' });
+    }
+    req.pos = { id: resolvedPosId };
+    req.user.posId = resolvedPosId;
+    return next();
+  }
+
   if (!req.user?.posId) {
     return res.status(403).json({ error: 'POS context missing in token' });
   }

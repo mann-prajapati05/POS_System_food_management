@@ -1346,7 +1346,7 @@ export async function listSessions(req, res) {
     if (scope.error) {
       return res.status(scope.status).json({ error: scope.error });
     }
-    const { status, openedBy, fromDate, toDate } = req.query;
+    const { status, openedBy, kitchenId, fromDate, toDate } = req.query;
     const values = [scope.posIds];
     const where = ['ps.pos_id = ANY($1::uuid[])'];
 
@@ -1366,6 +1366,20 @@ export async function listSessions(req, res) {
       where.push(`ps.opened_by = $${values.length}`);
     }
 
+    if (kitchenId) {
+      if (!isUuid(kitchenId)) {
+        return res.status(400).json({ error: 'kitchenId must be a valid UUID' });
+      }
+      values.push(kitchenId);
+      where.push(`EXISTS (
+        SELECT 1
+        FROM orders o2
+        WHERE o2.session_id = ps.id
+          AND o2.pos_id = ps.pos_id
+          AND o2.assigned_kitchen_user = $${values.length}
+      )`);
+    }
+
     if (fromDate) {
       if (!isValidDate(fromDate)) {
         return res.status(400).json({ error: 'Invalid fromDate' });
@@ -1379,12 +1393,14 @@ export async function listSessions(req, res) {
         return res.status(400).json({ error: 'Invalid toDate' });
       }
       values.push(toDate);
-      where.push(`ps.opened_at <= $${values.length}::timestamp`);
+      where.push(`ps.opened_at < ($${values.length}::date + INTERVAL '1 day')`);
     }
 
     const result = await query(
       `SELECT
          ps.id,
+         ps.pos_id,
+         p.name AS pos_name,
          ps.opened_by,
          u.name AS opened_by_name,
          ps.opened_at,
@@ -1396,9 +1412,10 @@ export async function listSessions(req, res) {
          COALESCE(SUM(o.total_price) FILTER (WHERE o.status = 'paid'), 0) AS calculated_revenue
        FROM pos_sessions ps
        INNER JOIN users u ON u.id = ps.opened_by
+       INNER JOIN pos p ON p.id = ps.pos_id
        LEFT JOIN orders o ON o.session_id = ps.id AND o.pos_id = ps.pos_id
        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-       GROUP BY ps.id, u.name
+       GROUP BY ps.id, p.name, u.name
        ORDER BY ps.opened_at DESC`,
       values
     );
@@ -1567,7 +1584,7 @@ export async function getSalesReport(req, res) {
     if (scope.error) {
       return res.status(scope.status).json({ error: scope.error });
     }
-    const { fromDate, toDate, sessionId, staffId, productId } = req.query;
+    const { fromDate, toDate, sessionId, staffId, kitchenId, productId } = req.query;
     const values = [scope.posIds];
     const where = ["o.status = 'paid'", 'o.pos_id = ANY($1::uuid[])'];
 
@@ -1584,7 +1601,7 @@ export async function getSalesReport(req, res) {
         return res.status(400).json({ error: 'Invalid toDate' });
       }
       values.push(toDate);
-      where.push(`o.paid_at <= $${values.length}::timestamp`);
+      where.push(`o.paid_at < ($${values.length}::date + INTERVAL '1 day')`);
     }
 
     if (sessionId) {
@@ -1601,6 +1618,14 @@ export async function getSalesReport(req, res) {
       }
       values.push(staffId);
       where.push(`o.created_by = $${values.length}`);
+    }
+
+    if (kitchenId) {
+      if (!isUuid(kitchenId)) {
+        return res.status(400).json({ error: 'kitchenId must be a valid UUID' });
+      }
+      values.push(kitchenId);
+      where.push(`o.assigned_kitchen_user = $${values.length}`);
     }
 
     if (productId) {
@@ -1651,7 +1676,14 @@ export async function getSalesReport(req, res) {
     );
 
     return res.status(200).json({
-      filters: { fromDate: fromDate || null, toDate: toDate || null, sessionId: sessionId || null, staffId: staffId || null, productId: productId || null },
+      filters: {
+        fromDate: fromDate || null,
+        toDate: toDate || null,
+        sessionId: sessionId || null,
+        staffId: staffId || null,
+        kitchenId: kitchenId || null,
+        productId: productId || null,
+      },
       totals: totals.rows[0],
       timeline: timeline.rows,
       byStaff: byStaff.rows,
@@ -1667,7 +1699,7 @@ export async function getTopProducts(req, res) {
     if (scope.error) {
       return res.status(scope.status).json({ error: scope.error });
     }
-    const { fromDate, toDate, limit } = req.query;
+    const { fromDate, toDate, sessionId, staffId, kitchenId, limit } = req.query;
     const values = [scope.posIds];
     const where = ["o.status = 'paid'", 'o.pos_id = ANY($1::uuid[])'];
 
@@ -1684,7 +1716,31 @@ export async function getTopProducts(req, res) {
         return res.status(400).json({ error: 'Invalid toDate' });
       }
       values.push(toDate);
-      where.push(`o.paid_at <= $${values.length}::timestamp`);
+      where.push(`o.paid_at < ($${values.length}::date + INTERVAL '1 day')`);
+    }
+
+    if (sessionId) {
+      if (!isUuid(sessionId)) {
+        return res.status(400).json({ error: 'sessionId must be a valid UUID' });
+      }
+      values.push(sessionId);
+      where.push(`o.session_id = $${values.length}`);
+    }
+
+    if (staffId) {
+      if (!isUuid(staffId)) {
+        return res.status(400).json({ error: 'staffId must be a valid UUID' });
+      }
+      values.push(staffId);
+      where.push(`o.created_by = $${values.length}`);
+    }
+
+    if (kitchenId) {
+      if (!isUuid(kitchenId)) {
+        return res.status(400).json({ error: 'kitchenId must be a valid UUID' });
+      }
+      values.push(kitchenId);
+      where.push(`o.assigned_kitchen_user = $${values.length}`);
     }
 
     const parsedLimit = Number.parseInt(limit || '10', 10);

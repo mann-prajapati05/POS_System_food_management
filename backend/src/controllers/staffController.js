@@ -36,26 +36,29 @@ async function recalculateOrderTotal(client, orderId) {
 }
 
 function parsePreparedQuantityFromNotes(notes) {
-  if (!notes || typeof notes !== 'string') return 0;
+  if (!notes || typeof notes !== 'string') return null;
   try {
     const parsed = JSON.parse(notes);
-    const value = Number(parsed?.preparedQuantity || 0);
-    return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+    const raw = parsed?.preparedQuantity;
+    if (raw === undefined || raw === null) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0;
   } catch {
-    return 0;
+    return null;
   }
 }
 
 function normalizePreparedQuantity(itemRow) {
   const quantity = Number(itemRow?.quantity || 0);
   const parsedPrepared = parsePreparedQuantityFromNotes(itemRow?.notes);
-  const prepared = Math.max(parsedPrepared, itemRow?.is_prepared ? quantity : 0);
+  const prepared = parsedPrepared !== null
+    ? parsedPrepared
+    : (itemRow?.is_prepared ? quantity : 0);
   return Math.min(prepared, quantity);
 }
 
 function serializePreparedQuantity(preparedQuantity) {
   const safe = Math.max(0, Number(preparedQuantity || 0));
-  if (!safe) return null;
   return JSON.stringify({ preparedQuantity: safe });
 }
 
@@ -373,7 +376,7 @@ export async function addOrderItem(req, res) {
         `INSERT INTO order_items (order_id, product_id, is_kitchen_item, quantity, price_at_time, notes, is_prepared)
          VALUES ($1, $2, $3, $4, $5, $6, false)
          RETURNING id, order_id, product_id, is_kitchen_item, quantity, price_at_time, notes, is_prepared`,
-        [orderId, productId, productRes.rows[0].is_kitchen_item === true, quantity, productRes.rows[0].price, null]
+        [orderId, productId, productRes.rows[0].is_kitchen_item === true, quantity, productRes.rows[0].price, serializePreparedQuantity(0)]
       );
       item = inserted.rows[0];
     }

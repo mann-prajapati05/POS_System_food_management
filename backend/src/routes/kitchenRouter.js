@@ -19,7 +19,7 @@ import { getCurrentSession, openSession } from '../controllers/staffController.j
 
 const router = express.Router();
 
-router.use(requireAuth, attachPOSContext, authorizeRole('kitchen'));
+router.use(requireAuth, attachPOSContext, authorizeRole('kitchen', 'admin'));
 
 router.post('/sessions/open', validateOpenSessionBody, validateRequest, asyncHandler(openSession));
 router.get('/sessions/current', asyncHandler(getCurrentSession));

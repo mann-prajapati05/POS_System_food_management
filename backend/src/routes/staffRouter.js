@@ -37,7 +37,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
-router.use(authenticateToken, authorizeRoles('staff', 'admin'));
+router.use(authenticateToken, authorizeRoles('staff', 'admin'), attachPOSContext);
 
 router.post('/sessions/open', validateOpenSessionBody, validateRequest, asyncHandler(openSession));
 router.get('/sessions/current', asyncHandler(getCurrentSession));

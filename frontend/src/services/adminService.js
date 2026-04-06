@@ -10,8 +10,8 @@ export async function createPos(payload) {
   return data.pos;
 }
 
-export async function getAdminDashboard() {
-  const { data } = await api.get('/admin/dashboard');
+export async function getAdminDashboard(params = {}) {
+  const { data } = await api.get('/admin/dashboard', { params });
   return data;
 }
 
@@ -33,6 +33,26 @@ export async function listSessions(params = {}) {
 export async function getSessionSummary(sessionId) {
   const { data } = await api.get(`/admin/sessions/${sessionId}/summary`);
   return data;
+}
+
+export async function getAdminSessionSummary(sessionId, params = {}) {
+  const { data } = await api.get(`/admin/sessions/${sessionId}/summary`, { params });
+  return data;
+}
+
+export async function openAdminSession(payload = {}) {
+  const { data } = await api.post('/admin/sessions/open', payload);
+  return data.session;
+}
+
+export async function getAdminActiveSession(posId) {
+  const params = {
+    status: 'active',
+    posId,
+  };
+  const { data } = await api.get('/admin/sessions', { params });
+  const sessions = data.sessions || [];
+  return sessions[0] || null;
 }
 
 export async function listUsers(params = {}) {

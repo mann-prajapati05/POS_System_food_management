@@ -1,30 +1,37 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
-import FilterSidebar from '../components/kitchen/FilterSidebar';
-import StatusTabs from '../components/kitchen/StatusTabs';
-import TicketCard from '../components/kitchen/TicketCard';
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import FilterSidebar from "../components/kitchen/FilterSidebar";
+import StatusTabs from "../components/kitchen/StatusTabs";
+import TicketCard from "../components/kitchen/TicketCard";
 import {
   getOrdersByStatus,
   KITCHEN_STATUS,
   updateItemStatus,
   updateOrderStatus,
-} from '../services/kitchenService';
-import { getActiveSession, openSession } from '../services/sessionService';
-import useAuthStore from '../store/authStore';
+} from "../services/kitchenService";
+import { getActiveSession, openSession } from "../services/sessionService";
+import useAuthStore from "../store/authStore";
 
 const POLL_INTERVAL_MS = 6000;
 const UPDATED_BADGE_MS = 8000;
 
 function ticketLabel(orderId) {
-  return `#${String(orderId || '').replace(/-/g, '').slice(-4).toUpperCase()}`;
+  return `#${String(orderId || "")
+    .replace(/-/g, "")
+    .slice(-4)
+    .toUpperCase()}`;
 }
 
 function stageOrders(orders) {
   return {
     to_cook: orders.filter((order) => order.status === KITCHEN_STATUS.TO_COOK),
-    preparing: orders.filter((order) => order.status === KITCHEN_STATUS.PREPARING),
-    completed: orders.filter((order) => order.status === KITCHEN_STATUS.COMPLETED),
+    preparing: orders.filter(
+      (order) => order.status === KITCHEN_STATUS.PREPARING,
+    ),
+    completed: orders.filter(
+      (order) => order.status === KITCHEN_STATUS.COMPLETED,
+    ),
   };
 }
 
@@ -32,30 +39,30 @@ function collectCategoryName(item) {
   if (item?.categoryName) return item.categoryName;
   if (item?.category_name) return item.category_name;
   if (item?.category) return item.category;
-  return '';
+  return "";
 }
 
-function normalizeOrders(orders, stagedPrepared) {
+function normalizeOrders(orders) {
   return orders.map((order) => {
-    const stagedMap = stagedPrepared[order.id] || {};
-
     const items = (order.items || []).map((item) => {
       const quantity = Number(item.quantity || 0);
-      const basePrepared = Number(item.quantityPrepared ?? (item.isPrepared ? quantity : 0));
-      const staged = Number(stagedMap[item.itemId] || 0);
-      const effectivePrepared = Math.min(quantity, basePrepared + staged);
+      const prepared = Math.min(
+        quantity,
+        Number(item.quantityPrepared ?? (item.isPrepared ? quantity : 0)),
+      );
 
       return {
         ...item,
         quantity,
-        quantityPreparedBase: Math.min(quantity, basePrepared),
-        stagedPrepared: staged,
-        quantityPreparedEffective: effectivePrepared,
+        quantityPreparedEffective: prepared,
       };
     });
 
     const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
-    const preparedQuantity = items.reduce((sum, item) => sum + item.quantityPreparedEffective, 0);
+    const preparedQuantity = items.reduce(
+      (sum, item) => sum + item.quantityPreparedEffective,
+      0,
+    );
 
     return {
       ...order,
@@ -73,7 +80,7 @@ function orderSignature(order) {
   (order.items || []).forEach((item) => {
     parts.push(`${item.itemId}:${item.quantity}:${item.quantityPrepared || 0}`);
   });
-  return parts.join('|');
+  return parts.join("|");
 }
 
 export default function KitchenDashboard() {
@@ -83,28 +90,27 @@ export default function KitchenDashboard() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [busyOrderId, setBusyOrderId] = useState('');
+  const [busyOrderId, setBusyOrderId] = useState("");
   const [sessionBusy, setSessionBusy] = useState(false);
   const [activeSession, setActiveSession] = useState(null);
 
   const [orders, setOrders] = useState([]);
-  const [stagedPrepared, setStagedPrepared] = useState({});
   const [dismissedCompleted, setDismissedCompleted] = useState({});
   const [updatedOrders, setUpdatedOrders] = useState({});
 
-  const [activeTab, setActiveTab] = useState('all');
-  const [search, setSearch] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [activeTab, setActiveTab] = useState("all");
+  const [search, setSearch] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(3);
 
-  const hasActiveSession = activeSession?.status === 'active';
+  const hasActiveSession = activeSession?.status === "active";
 
   const loadSession = async () => {
     try {
-      const current = await getActiveSession('kitchen');
-      if (current?.status === 'active') {
+      const current = await getActiveSession("kitchen");
+      if (current?.status === "active") {
         setActiveSession(current);
       } else {
         setActiveSession(null);
@@ -128,8 +134,22 @@ export default function KitchenDashboard() {
         KITCHEN_STATUS.COMPLETED,
       ]);
 
+      // If a previously served ticket comes back due to order edits,
+      // clear its dismissed marker so it appears again in Completed.
+      setDismissedCompleted((prev) => {
+        const next = { ...prev };
+        list.forEach((order) => {
+          if (order.status !== KITCHEN_STATUS.COMPLETED && next[order.id]) {
+            delete next[order.id];
+          }
+        });
+        return next;
+      });
+
       setOrders((prev) => {
-        const prevById = new Map(prev.map((order) => [order.id, orderSignature(order)]));
+        const prevById = new Map(
+          prev.map((order) => [order.id, orderSignature(order)]),
+        );
         const now = Date.now();
         setUpdatedOrders((current) => {
           const next = { ...current };
@@ -153,18 +173,10 @@ export default function KitchenDashboard() {
 
         return list;
       });
-
-      setStagedPrepared((prev) => {
-        const next = {};
-        list.forEach((order) => {
-          if (prev[order.id]) {
-            next[order.id] = prev[order.id];
-          }
-        });
-        return next;
-      });
     } catch (error) {
-      toast.error(error?.response?.data?.error || 'Failed to load kitchen orders');
+      toast.error(
+        error?.response?.data?.error || "Failed to load kitchen orders",
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -188,7 +200,7 @@ export default function KitchenDashboard() {
     setPage(1);
   }, [activeTab, search, selectedProduct, selectedCategory, perPage]);
 
-  const normalized = useMemo(() => normalizeOrders(orders, stagedPrepared), [orders, stagedPrepared]);
+  const normalized = useMemo(() => normalizeOrders(orders), [orders]);
   const staged = useMemo(() => stageOrders(normalized), [normalized]);
 
   const productOptions = useMemo(() => {
@@ -211,38 +223,59 @@ export default function KitchenDashboard() {
   }, [normalized]);
 
   const filtered = useMemo(() => {
-    const base = activeTab === 'all'
-      ? normalized
-      : normalized.filter((order) => order.status === activeTab);
+    const base =
+      activeTab === "all"
+        ? normalized
+        : normalized.filter((order) => order.status === activeTab);
 
     const q = search.trim().toLowerCase();
 
     return base.filter((order) => {
-      if (order.status === KITCHEN_STATUS.COMPLETED && dismissedCompleted[order.id]) {
+      if (
+        order.status === KITCHEN_STATUS.COMPLETED &&
+        dismissedCompleted[order.id]
+      ) {
         return false;
       }
 
-      const orderMatch = !q ||
+      const orderMatch =
+        !q ||
         order.ticketLabel.toLowerCase().includes(q) ||
         String(order.id).toLowerCase().includes(q);
 
-      const productMatch = !q || order.items.some((item) => item.name.toLowerCase().includes(q));
+      const productMatch =
+        !q || order.items.some((item) => item.name.toLowerCase().includes(q));
 
       if (!orderMatch && !productMatch) {
         return false;
       }
 
-      if (selectedProduct && !order.items.some((item) => item.name === selectedProduct)) {
+      if (
+        selectedProduct &&
+        !order.items.some((item) => item.name === selectedProduct)
+      ) {
         return false;
       }
 
-      if (selectedCategory && !order.items.some((item) => collectCategoryName(item) === selectedCategory)) {
+      if (
+        selectedCategory &&
+        !order.items.some(
+          (item) => collectCategoryName(item) === selectedCategory,
+        )
+      ) {
         return false;
       }
 
       return true;
     });
-  }, [activeTab, dismissedCompleted, normalized, search, selectedCategory, selectedProduct]);
+  }, [
+    activeTab,
+    dismissedCompleted,
+    normalized,
+    search,
+    selectedCategory,
+    selectedProduct,
+  ]);
 
   const paged = useMemo(() => {
     const start = (page - 1) * perPage;
@@ -252,68 +285,104 @@ export default function KitchenDashboard() {
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / perPage));
 
-  const counts = useMemo(() => ({
-    all: normalized.filter((o) => !(o.status === KITCHEN_STATUS.COMPLETED && dismissedCompleted[o.id])).length,
-    to_cook: staged.to_cook.length,
-    preparing: staged.preparing.length,
-    completed: staged.completed.filter((o) => !dismissedCompleted[o.id]).length,
-  }), [dismissedCompleted, normalized, staged.completed, staged.preparing, staged.to_cook]);
+  const counts = useMemo(
+    () => ({
+      all: normalized.filter(
+        (o) =>
+          !(o.status === KITCHEN_STATUS.COMPLETED && dismissedCompleted[o.id]),
+      ).length,
+      to_cook: staged.to_cook.length,
+      preparing: staged.preparing.length,
+      completed: staged.completed.filter((o) => !dismissedCompleted[o.id])
+        .length,
+    }),
+    [
+      dismissedCompleted,
+      normalized,
+      staged.completed,
+      staged.preparing,
+      staged.to_cook,
+    ],
+  );
 
-  const toggleItem = (order, item) => {
+  const toggleItem = async (order, item) => {
     if (order.status !== KITCHEN_STATUS.TO_COOK) return;
+    if (!hasActiveSession) {
+      toast.error("Enter an active session first");
+      return;
+    }
+    if (busyOrderId === order.id) return;
 
-    const remaining = Math.max(0, item.quantity - item.quantityPreparedBase);
-    if (remaining === 0) return;
+    const quantity = Number(item.quantity || 0);
+    const currentPrepared = Math.min(
+      quantity,
+      Number(item.quantityPreparedEffective ?? item.quantityPrepared ?? 0),
+    );
+    if (currentPrepared >= quantity) return;
 
-    setStagedPrepared((prev) => {
-      const orderMap = prev[order.id] || {};
-      const current = Number(orderMap[item.itemId] || 0);
-      const nextValue = current > 0 ? 0 : remaining;
+    const nextPrepared = quantity;
 
-      return {
-        ...prev,
-        [order.id]: {
-          ...orderMap,
-          [item.itemId]: nextValue,
-        },
-      };
-    });
+    setOrders((prev) =>
+      prev.map((existingOrder) => {
+        if (existingOrder.id !== order.id) return existingOrder;
+        return {
+          ...existingOrder,
+          items: (existingOrder.items || []).map((existingItem) => {
+            if (existingItem.itemId !== item.itemId) return existingItem;
+            return {
+              ...existingItem,
+              quantityPrepared: Math.min(
+                Number(existingItem.quantity || 0),
+                nextPrepared,
+              ),
+            };
+          }),
+        };
+      }),
+    );
+
+    setBusyOrderId(order.id);
+    try {
+      await updateItemStatus(order.id, item.itemId);
+      await loadOrders({ silent: true });
+    } catch (error) {
+      await loadOrders({ silent: true });
+      toast.error(
+        error?.response?.data?.error || "Failed to update item status",
+      );
+    } finally {
+      setBusyOrderId("");
+    }
   };
 
   const promoteToPreparing = async (order) => {
     if (!hasActiveSession) {
-      toast.error('Enter an active session first');
+      toast.error("Enter an active session first");
       return;
     }
 
     if (!order.isAllPrepared) {
-      toast.error('Mark all item quantities before moving to Preparing');
+      toast.error("Mark all item quantities before moving to Preparing");
       return;
     }
 
-    const stageMap = stagedPrepared[order.id] || {};
     setBusyOrderId(order.id);
     try {
-      for (const item of order.items) {
-        const stagedQuantity = Number(stageMap[item.itemId] || 0);
-        for (let i = 0; i < stagedQuantity; i += 1) {
-          await updateItemStatus(order.id, item.itemId);
-        }
-      }
-
       await updateOrderStatus(order.id, KITCHEN_STATUS.PREPARING);
       toast.success(`${order.ticketLabel} moved to Preparing`);
       await loadOrders({ silent: true });
     } catch (error) {
-      toast.error(error?.response?.data?.error || 'Failed to move order to preparing');
+      toast.error(
+        error?.response?.data?.error || "Failed to move order to preparing",
+      );
     } finally {
-      setBusyOrderId('');
+      setBusyOrderId("");
     }
   };
 
   const moveToCompleted = async (order) => {
     if (!hasActiveSession) {
-      toast.error('Enter an active session first');
+      toast.error("Enter an active session first");
       return;
     }
 
@@ -323,9 +392,9 @@ export default function KitchenDashboard() {
       toast.success(`${order.ticketLabel} marked Completed`);
       await loadOrders({ silent: true });
     } catch (error) {
-      toast.error(error?.response?.data?.error || 'Failed to complete order');
+      toast.error(error?.response?.data?.error || "Failed to complete order");
     } finally {
-      setBusyOrderId('');
+      setBusyOrderId("");
     }
   };
 
@@ -337,23 +406,28 @@ export default function KitchenDashboard() {
   const handleEnterSession = async () => {
     setSessionBusy(true);
     try {
-      const current = await getActiveSession('kitchen');
-      if (current?.status === 'active') {
+      const current = await getActiveSession("kitchen");
+      if (current?.status === "active") {
         setActiveSession(current);
-        toast.success('Active session found. Entered current session.');
+        toast.success("Active session found. Entered current session.");
         return;
       }
 
-      const created = await openSession({ notes: 'Opened from kitchen dashboard' }, 'kitchen');
+      const created = await openSession(
+        { notes: "Opened from kitchen dashboard" },
+        "kitchen",
+      );
       setActiveSession(created);
-      toast.success('New session created and entered.');
+      toast.success("New session created and entered.");
     } catch (error) {
       if (error?.response?.status === 409 && error?.response?.data?.session) {
         setActiveSession(error.response.data.session);
-        toast.success('Active session already exists. Entered current session.');
+        toast.success(
+          "Active session already exists. Entered current session.",
+        );
         return;
       }
-      toast.error(error?.response?.data?.error || 'Unable to enter session');
+      toast.error(error?.response?.data?.error || "Unable to enter session");
     } finally {
       setSessionBusy(false);
     }
@@ -361,11 +435,12 @@ export default function KitchenDashboard() {
 
   const handleLogout = () => {
     clearAuth();
-    navigate('/login', { replace: true });
+    navigate("/login", { replace: true });
   };
 
   /* ---------- DARK THEMED BUTTON CLASSES ---------- */
-  const btnDark = "h-9 rounded-linen border border-[#2A2A2A] bg-[#1A1A1A] px-3 text-[13px] font-medium text-[#E5E5E5] transition-colors hover:bg-[#222222] disabled:cursor-not-allowed disabled:opacity-50";
+  const btnDark =
+    "h-9 rounded-linen border border-[#2A2A2A] bg-[#1A1A1A] px-3 text-[13px] font-medium text-[#E5E5E5] transition-colors hover:bg-[#222222] disabled:cursor-not-allowed disabled:opacity-50";
 
   if (loading) {
     return (
@@ -386,15 +461,29 @@ export default function KitchenDashboard() {
               KDS
             </div>
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[#555555]">Kitchen Display</p>
-              <h1 className="text-[15px] font-semibold text-[#F5F5F5]">Kitchen Board</h1>
+              <p className="text-[11px] font-medium uppercase tracking-[0.1em] text-[#555555]">
+                Kitchen Display
+              </p>
+              <h1 className="text-[15px] font-semibold text-[#F5F5F5]">
+                Kitchen Board
+              </h1>
             </div>
           </div>
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
             <div className="relative">
-              <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#555555]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              <svg
+                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#555555]"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                />
               </svg>
               <input
                 value={search}
@@ -414,11 +503,24 @@ export default function KitchenDashboard() {
               <option value={3}>3 / page</option>
             </select>
 
-            <button type="button" onClick={() => loadOrders({ silent: true })} className={btnDark}>
-              {refreshing ? 'Refreshing...' : 'Refresh'}
+            <button
+              type="button"
+              onClick={() => loadOrders({ silent: true })}
+              className={btnDark}
+            >
+              {refreshing ? "Refreshing..." : "Refresh"}
             </button>
-            <button type="button" onClick={handleEnterSession} disabled={sessionBusy} className={btnDark}>
-              {sessionBusy ? 'Checking...' : hasActiveSession ? 'Session Active' : 'Enter Session'}
+            <button
+              type="button"
+              onClick={handleEnterSession}
+              disabled={sessionBusy}
+              className={btnDark}
+            >
+              {sessionBusy
+                ? "Checking..."
+                : hasActiveSession
+                  ? "Session Active"
+                  : "Enter Session"}
             </button>
             <button type="button" onClick={handleLogout} className={btnDark}>
               Logout
@@ -426,7 +528,11 @@ export default function KitchenDashboard() {
           </div>
 
           <div className="w-full pt-2">
-            <StatusTabs activeTab={activeTab} counts={counts} onChange={setActiveTab} />
+            <StatusTabs
+              activeTab={activeTab}
+              counts={counts}
+              onChange={setActiveTab}
+            />
           </div>
         </div>
       </header>
@@ -440,8 +546,8 @@ export default function KitchenDashboard() {
           onProductChange={setSelectedProduct}
           onCategoryChange={setSelectedCategory}
           onReset={() => {
-            setSelectedProduct('');
-            setSelectedCategory('');
+            setSelectedProduct("");
+            setSelectedCategory("");
           }}
         />
 
@@ -450,7 +556,9 @@ export default function KitchenDashboard() {
             <p className="text-[13px] font-medium text-[#888888]">
               {paged.length} of {filtered.length} tickets
             </p>
-            <p className="font-mono text-xs text-[#555555]">Page {page} / {pageCount}</p>
+            <p className="font-mono text-xs text-[#555555]">
+              Page {page} / {pageCount}
+            </p>
           </div>
 
           {!hasActiveSession && (
@@ -461,11 +569,25 @@ export default function KitchenDashboard() {
 
           {paged.length === 0 ? (
             <div className="flex flex-col items-center rounded-linen-lg border border-dashed border-[#2A2A2A] bg-[#1A1A1A] px-6 py-16 text-center">
-              <svg className="h-12 w-12 text-[#2A2A2A]" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              <svg
+                className="h-12 w-12 text-[#2A2A2A]"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
+                />
               </svg>
-              <p className="mt-3 text-sm text-[#888888]">No kitchen tickets match your filters</p>
-              <p className="mt-1 text-[13px] text-[#555555]">Tickets will appear here when orders are sent from POS</p>
+              <p className="mt-3 text-sm text-[#888888]">
+                No kitchen tickets match your filters
+              </p>
+              <p className="mt-1 text-[13px] text-[#555555]">
+                Tickets will appear here when orders are sent from POS
+              </p>
             </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -474,7 +596,6 @@ export default function KitchenDashboard() {
                   key={order.id}
                   order={order}
                   stage={order.status}
-                  stagedPreparedMap={stagedPrepared[order.id] || {}}
                   canPromoteToPreparing={order.isAllPrepared}
                   onToggleItem={toggleItem}
                   onPromote={promoteToPreparing}
